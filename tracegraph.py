@@ -2,7 +2,7 @@ import networkx as nx
 from itertools import count, chain
 from collections import defaultdict
 
-_attrs = dict(id='id', source='source', target='target', key='key', name='name')
+_attrs = dict(id='id', source='source', target='target', key='key', name='name', src_name='src_name', tgt_name='tgt_name')
 
 
 def path_to_graph(paths, probe, g):
@@ -38,6 +38,8 @@ def node_link_data_modify(G, attrs=_attrs):
     name = attrs['name']
     source = attrs['source']
     target = attrs['target']
+    src_name = attrs['src_name']
+    tgt_name = attrs['tgt_name']
     # Allow 'key' to be omitted from attrs if the graph is not a multigraph.
     key = None if not multigraph else attrs['key']
     if len(set([source, target, key])) < 3:
@@ -57,7 +59,7 @@ def node_link_data_modify(G, attrs=_attrs):
     else:
         data['links'] = [
             dict(chain(d.items(),
-                       [(source, mapping[u]), (target, mapping[v])]))
+                       [(source, mapping[u]), (src_name, u), (target, mapping[v]), (tgt_name, v)]))
             for u, v, d in G.edges_iter(data=True)]
 
     return data
@@ -82,7 +84,18 @@ def compose_modify(G, H):
 
     for n, d in chain(G.nodes_iter(data=True), H.nodes_iter(data=True)):
         # more complex logic merging attributes of node can be added here.
-        R.add_node(n, d)
+        if n in R.nodes_iter():
+            dd = dict()
+            d1 = R.node[n]
+            # if node n hosts some probe, then it appears to be a source, otherwise check priority IXP, dest and normal node
+            dd['termination'] = 1 if any(map(lambda s: s == 1, [d['termination'], d1['termination']])) else min([d['termination'], d1['termination']])
+            if 'hosting' in d or 'hosting' in d1:
+                dd['hosting'] = set()
+                for di in [d, d1]:
+                    dd['hosting'].update(di.get('hosting', iter([])))
+        else:
+            dd = d
+        R.add_node(n, dd)
 
     for src, tgt, d in chain(H.edges_iter(data=True), G.edges_iter(data=True)):
         # if the edge is already present in the graph, for each of its attribute (key), extend the list

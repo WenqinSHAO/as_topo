@@ -34,10 +34,18 @@ d3.json("graph.json", function(error, graph) {
           .on("end", dragended));
 
   node.append("title")
-      .text(function(d) { return d.name; });
+      .text(function(d) {
+          if (_.has(d, 'hosting')) {
+              return 'AS '+d.name + ' hosting:\n' + d.hosting.toString();
+              }
+          else {
+              return 'AS '+d.name;
+              }
+       });
 
   link.append("title")
-      .text(function(d) { return d.probe.length.toString() + ' [' + d.probe.toString() + ']'; });
+      .text(function(d) {
+          return d.probe.length.toString() + ' probes on (' + d.src_name+ ', ' + d.tgt_name + ')\n' + '[' + d.probe.toString() + ']'; });
 
   simulation
       .nodes(graph.nodes)

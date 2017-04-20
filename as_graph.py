@@ -8,7 +8,8 @@ import argparse
 import multiprocessing
 import itertools
 from ast import literal_eval
-import  time
+import time
+from collections import defaultdict
 
 # hops to be removed in as path
 RM_HOP = ['', 'Invalid IP address', 'this', 'private', 'CGN', 'host', 'linklocal',
@@ -55,6 +56,7 @@ def worker(fn, end=None):
     source = set()
     dest = set()
     ixp = set()
+    hosting = defaultdict(set)
 
     if end:
         dest.add(end)
@@ -76,18 +78,17 @@ def worker(fn, end=None):
                 for idx, h in enumerate(p):
                     if idx == 0:
                         source.add(h)
+                        hosting[h].add(pb)
                     elif idx == last_idx:
                         dest.add(h)
                     elif isinstance(h, (str, unicode)):
                         ixp.add(h)
             t.path_to_graph(as_path, pb, g)
 
-    #for e in g.edges():
-    #    g[e[0]][e[1]]['probe'] = list(g[e[0]][e[1]]['probe'])
-
     for n in g:
         if n in source:
             g.node[n]['termination'] = 1
+            g.node[n]['hosting'] = hosting[n]
         elif n in ixp:
             g.node[n]['termination'] = 2
         elif n in dest:
@@ -153,8 +154,12 @@ def main():
     g = t.compose_all_modify(res)
 
     # listfy the probe set, otherwise cannot be serialized
-    for e in g.edges():
+    for e in g.edges_iter():
         g[e[0]][e[1]]['probe'] = list(g[e[0]][e[1]]['probe'])
+
+    for n in g.nodes_iter():
+        if 'hosting' in g.node[n]:
+            g.node[n]['hosting'] = list(g.node[n]['hosting'])
 
     d = t.node_link_data_modify(g)
     json.dump(d, open('graph.json', 'w'))
