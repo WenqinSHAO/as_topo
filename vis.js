@@ -11,6 +11,8 @@ var simulation = d3.forceSimulation()
     .force("charge", d3.forceManyBody())
     .force("center", d3.forceCenter(width / 2, height / 2));
 
+var toggle = 0
+
 d3.json("graph.json", function(error, graph) {
   if (error) throw error;
 
@@ -31,7 +33,9 @@ d3.json("graph.json", function(error, graph) {
       .call(d3.drag()
           .on("start", dragstarted)
           .on("drag", dragged)
-          .on("end", dragended));
+          .on("end", dragended))
+       .on("mouseover", mouseOver)
+       .on("mouseout", mouseOut);
 
   node.append("title")
       .text(function(d) {
@@ -65,6 +69,41 @@ d3.json("graph.json", function(error, graph) {
         .attr("cx", function(d) { return d.x; })
         .attr("cy", function(d) { return d.y; });
   }
+
+  function mouseOver(d, i) {
+    d3.select(this)
+      .attr("r", 10);
+    if (d.termination == 1){
+        d3.select(this)
+          .attr("fill", "#4a1486");
+        var pb = d.hosting;
+        d3.selectAll('line').each(function (d) {
+            for (var i = 0; i < pb.length; i++) {
+                if (d.probe.includes(pb[i])){
+                    d3.select(this)
+                      .style("stroke", "#e34a33")
+                      .style("opacity", .8)
+                      .attr("stroke-width", function(d) { return 6 * Math.sqrt(d.probe.length); });
+                    break;
+                }
+            }
+        });
+    }
+  }
+
+  function mouseOut(d, i) {
+    d3.select(this)
+      .attr("r", 6);
+    if (d.termination == 1){
+        d3.select(this)
+          .attr("fill", function(d) {return color(d.termination); });
+        d3.selectAll('line')
+          .style("stroke", "#999")
+          .style("opacity", 0.6)
+          .attr("stroke-width", function(d) { return 2 * Math.sqrt(d.probe.length); });
+        }
+    }
+
 });
 
 function dragstarted(d) {

@@ -66,8 +66,6 @@ def worker(fn, end=None):
         # current only first 300 traceroute is considered in construting the graph;
         # the better is to make it a configurable input that reflects in the final graph
         # e.g. given a human readable time range
-        # TODO: associate source AS with a new attribute indicating the probes hosted
-        # TODO: in javascript, when click on a source probe, visualize all the edges taken by the probe
         if end:
             as_path = [[j for j in i if j not in RM_HOP] for i in traceroute[pb]['asn_path'][:336] if end in i]
         else:
