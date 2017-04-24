@@ -31,17 +31,7 @@ d3.json("graph.json", function(error, graph) {
         .data(graph.nodes)
         .enter().append("circle")
             .attr("r", 6)
-            .attr("fill", function(d) {
-                if (d.tag.includes(3)) {
-                    return color(3);
-                } else if (d.tag.includes(2)) {
-                    return color(2);
-                } else if (d.tag.includes(1)) {
-                    return color(1);
-                } else {
-                    return color(4)
-                }
-               })
+            .attr("fill", nodeColor)
           .call(d3.drag()
               .on("start", dragstarted)
               .on("drag", dragged)
@@ -101,17 +91,7 @@ d3.json("graph.json", function(error, graph) {
             }
         } else {
             if (_.has(d, 'hosting')){
-                d3.select(this).attr("fill", function(d) {
-                if (d.tag.includes(3)) {
-                    return color(3);
-                } else if (d.tag.includes(2)) {
-                    return color(2);
-                } else if (d.tag.includes(1)) {
-                    return color(1);
-                } else {
-                    return color(4)
-                }
-            });
+                d3.select(this).attr("fill", nodeColor);
             var pb = d.hosting;
             d3.selectAll('line').each(function (d) {
                 for (var i = 0; i < pb.length; i++) {
@@ -129,12 +109,26 @@ d3.json("graph.json", function(error, graph) {
         }
       }
 
-        function saveLink(d, i) {
-            var blob = new Blob([d.probe.join('\n')], {type: "text/plain;charset=utf-8"});
-            var fn = d.src_name.toString() + '_' + d.tgt_name.toString() + '.txt';
-            saveAs(blob, fn);
-            alert("IDs of " + d.probe.length.toString() + " probes on (" + d.src_name.toString() + ', ' + d.tgt_name.toString() + " ) saved to file: " + fn);
+    function saveLink(d, i) {
+        var blob = new Blob([d.probe.join('\n')], {type: "text/plain;charset=utf-8"});
+        var fn = d.src_name.toString() + '_' + d.tgt_name.toString() + '.txt';
+        saveAs(blob, fn);
+        alert("IDs of " + d.probe.length.toString() + " probes on (" + d.src_name.toString() + ', ' + d.tgt_name.toString() + " ) saved to file: " + fn);
+    }
+
+    function nodeColor(d) {
+        if (d.tag.includes(3)) {
+            return color(3);
+        } else if (d.tag.includes(2)) {
+            return color(2);
+        } else if (d.tag.includes(1)) {
+            return color(1);
+        } else {
+            return color(4);
         }
+    }
+
+
     });
 
 function dragstarted(d) {
