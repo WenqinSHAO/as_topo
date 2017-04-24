@@ -87,8 +87,7 @@ def compose_modify(G, H):
         if n in R.nodes_iter():
             dd = dict()
             d1 = R.node[n]
-            # if node n hosts some probe, then it appears to be a source, otherwise check priority IXP, dest and normal node
-            dd['termination'] = 1 if any(map(lambda s: s == 1, [d['termination'], d1['termination']])) else min([d['termination'], d1['termination']])
+            dd['tag'] = d1['tag'] | d['tage']
             if 'hosting' in d or 'hosting' in d1:
                 dd['hosting'] = set()
                 for di in [d, d1]:

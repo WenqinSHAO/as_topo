@@ -84,15 +84,16 @@ def worker(fn, end=None):
             t.path_to_graph(as_path, pb, g)
 
     for n in g:
+        attr = defaultdict(set)
         if n in source:
-            g.node[n]['termination'] = 1
-            g.node[n]['hosting'] = hosting[n]
-        elif n in ixp:
-            g.node[n]['termination'] = 2
-        elif n in dest:
-            g.node[n]['termination'] = 3
-        else:
-            g.node[n]['termination'] = 4
+            attr['tag'].add(1)
+            attr['hosting'] = hosting[n]
+        if n in ixp:
+            attr['tag'].add(2)
+        if n in dest:
+            attr['tag'].add(3)
+        attr['tag'].add(4)
+        g.node[n] = attr
 
     t4 = time.time()
     logging.info("%s handled in %.2f sec." % (fn, t4-t3))
@@ -156,6 +157,7 @@ def main():
         g[e[0]][e[1]]['probe'] = list(g[e[0]][e[1]]['probe'])
 
     for n in g.nodes_iter():
+        g.node[n]['tag'] = list(g.node[n]['tag'])
         if 'hosting' in g.node[n]:
             g.node[n]['hosting'] = list(g.node[n]['hosting'])
 

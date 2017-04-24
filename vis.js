@@ -5,6 +5,8 @@ var svg = d3.select("svg"),
 var color = d3.scaleOrdinal()
     .domain([1,2,3,4])
     .range(["#bebada", "#fdb462", "#e41a1c", "#b3de69"]);
+    // node color legend:
+    // 1 for source; 2 for ixp; 3 for dst; 4 for all the others
 
 var simulation = d3.forceSimulation()
     .force("link", d3.forceLink().id(function(d) { return d.id; }))
@@ -30,7 +32,17 @@ d3.json("graph.json", function(error, graph) {
     .data(graph.nodes)
     .enter().append("circle")
       .attr("r", 6)
-      .attr("fill", function(d) { return color(d.termination); })
+      .attr("fill", function(d) {
+        if (d.tag.includes(3)) {
+            return color(3);
+        } else if (d.tag.includes(2)) {
+            return color(2);
+        } else if (d.tag.includes(1)) {
+            return color(1);
+        } else {
+            return color(4)
+        }
+       })
       .call(d3.drag()
           .on("start", dragstarted)
           .on("drag", dragged)
@@ -74,7 +86,7 @@ d3.json("graph.json", function(error, graph) {
   function mouseOver(d, i) {
     d3.select(this)
       .attr("r", 10);
-    if (d.termination == 1){
+    if (_.has(d, 'hosting')){
         d3.select(this)
           .attr("fill", "#4a1486");
         var pb = d.hosting;
@@ -95,9 +107,19 @@ d3.json("graph.json", function(error, graph) {
   function mouseOut(d, i) {
     d3.select(this)
       .attr("r", 6);
-    if (d.termination == 1){
+    if (_.has(d, 'hosting')){
         d3.select(this)
-          .attr("fill", function(d) {return color(d.termination); });
+          .attr("fill", function(d) {
+        if (d.tag.includes(3)) {
+            return color(3);
+        } else if (d.tag.includes(2)) {
+            return color(2);
+        } else if (d.tag.includes(1)) {
+            return color(1);
+        } else {
+            return color(4)
+        }
+       });
         d3.selectAll('line')
           .style("stroke", "#999")
           .attr("stroke-width", function(d) { return 2 * Math.sqrt(d.probe.length); })
