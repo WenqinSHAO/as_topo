@@ -10,6 +10,7 @@ import itertools
 from ast import literal_eval
 import time
 from collections import defaultdict
+import timetools as tt
 
 # hops to be removed in as path
 RM_HOP = ['', 'Invalid IP address', 'this', 'private', 'CGN', 'host', 'linklocal',
@@ -32,7 +33,7 @@ def type_convert(s):
         return s
 
 
-def worker(fn, end=None):
+def worker(fn, end=None, begin=None, stop=None):
     """for each given file fn, read the paths sequences for each probe and create a graph out of these paths
 
     Args:
@@ -62,14 +63,37 @@ def worker(fn, end=None):
         dest.add(end)
 
     for pb in traceroute:
-        # TODO: parameterize the traceroutes considered for each probe
-        # current only first 300 traceroute is considered in construting the graph;
-        # the better is to make it a configurable input that reflects in the final graph
-        # e.g. given a human readable time range
-        if end:
-            as_path = [[j for j in i if j not in RM_HOP] for i in traceroute[pb]['asn_path'][:336] if end in i]
+        if begin:
+            try:
+                begin_idx = next(i for i, v in enumerate(traceroute[pb]['epoch']) if v >= begin)
+            except StopIteration:
+                begin_idx = None
         else:
-            as_path = [[j for j in i if j not in RM_HOP] for i in traceroute[pb]['asn_path'][:336]]
+            begin_idx = None
+        if stop:
+            try:
+                stop_idx = next(i for i, v in enumerate(traceroute[pb]['epoch']) if v > stop)
+            except StopIteration:
+                stop_idx = None
+        else:
+            begin_idx = None
+        logging.debug("Probe %s, begin idx = %r, stop idx = %r" % (pb, begin_idx, stop_idx))
+        if end:
+            if begin or stop:
+                as_path = [[j for j in i if j not in RM_HOP] for i in traceroute[pb]['asn_path'][begin_idx : stop_idx] if end in i]
+            else:
+                try:
+                    as_path = [next([j for j in i if j not in RM_HOP] for i in traceroute[pb]['asn_path'] if end in i)]
+                except StopIteration:
+                    as_path = []
+        else:
+            if begin or stop:
+                as_path = [[j for j in i if j not in RM_HOP] for i in traceroute[pb]['asn_path'][begin_idx : stop_idx]]
+            else:
+                try:
+                    as_path = [next([j for j in i if j not in RM_HOP] for i in traceroute[pb]['asn_path'])]
+                except StopIteration:
+                    as_path = []
         if as_path:
             for p in as_path:
                 last_idx = len(p) - 1
@@ -126,8 +150,14 @@ def main():
     parser.add_argument("-e", "--end",
                         help="if all the measurements have a common destination, specify it with this flag",
                         action="store")
+    parser.add_argument("-b", "--beginTime",
+                        help="the beginning moment for traceroute rendering, format %s" % '%Y-%m-%d %H:%M:%S %z',
+                        action='store')
+    parser.add_argument("-t", "--stopTime",
+                        help="the ending moment for traceroute rendering, format % s" % '%Y-%m-%d %H:%M:%S %z',
+                        action='store')
     args = parser.parse_args()
-
+    args_dict = vars(args)
     if not args.directory or not args.suffix:
         print args.help
         return
@@ -135,7 +165,7 @@ def main():
         trace_dir = args.directory
 
     if not os.path.exists(trace_dir):
-        logging.critical("%s doesn't existe." % trace_dir)
+        logging.critical("%s doesn't exist." % trace_dir)
         return
 
     files = []
@@ -147,12 +177,35 @@ def main():
         logging.INFO("No file found in %s, exited." % trace_dir)
         return
 
+    if args.beginTime:
+        try:
+            begin = tt.string_to_epoch(args.beginTime)
+        except (ValueError, TypeError):
+            logging.critical("Wrong --beginTime format. Should be %s." % '%Y-%m-%d %H:%M:%S %z')
+            return
+    else:
+        begin = None
+
+    if args.beginTime:
+        try:
+            stop = tt.string_to_epoch(args.stopTime)
+        except (ValueError, TypeError):
+            logging.critical("Wrong --stopTime format. Should be %s." % '%Y-%m-%d %H:%M:%S %z')
+            return
+    else:
+        stop = None
+
+    if not begin and not stop:
+        logging.info("None begin and stop time input, default to consider the first traceroutes of each probe")
+
     pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
-    res = pool.map(worker_wrapper, itertools.izip(files, itertools.repeat(args.end)))
+    res = pool.map(worker_wrapper,
+                   itertools.izip(files, itertools.repeat(args.end),
+                                  itertools.repeat(begin), itertools.repeat(stop)))
 
     g = t.compose_all_modify(res)
 
-    # listfy the probe set, otherwise cannot be serialized
+    # listfy the node/link attributes, otherwise cannot be serialized
     for e in g.edges_iter():
         g[e[0]][e[1]]['probe'] = list(g[e[0]][e[1]]['probe'])
 
@@ -160,6 +213,10 @@ def main():
         g.node[n]['tag'] = list(g.node[n]['tag'])
         if 'hosting' in g.node[n]:
             g.node[n]['hosting'] = list(g.node[n]['hosting'])
+
+    # graph attributes storing the commend used to create the graph
+    for k, v in args_dict.items():
+        g.graph[k] = v
 
     d = t.node_link_data_modify(g)
     json.dump(d, open('graph.json', 'w'))
