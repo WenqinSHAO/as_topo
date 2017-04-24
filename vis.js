@@ -21,7 +21,8 @@ d3.json("graph.json", function(error, graph) {
     .selectAll("line")
     .data(graph.links)
     .enter().append("line")
-      .attr("stroke-width", function(d) { return 2 * Math.sqrt(d.probe.length); });
+      .attr("stroke-width", function(d) { return 2 * Math.sqrt(d.probe.length); })
+      .attr("opacity", function(d) { return (d.probe.length > 30) ? 0.6: .1; } );
 
   var node = svg.append("g")
       .attr("class", "nodes")
@@ -34,8 +35,8 @@ d3.json("graph.json", function(error, graph) {
           .on("start", dragstarted)
           .on("drag", dragged)
           .on("end", dragended))
-       .on("mouseover", mouseOver)
-       .on("mouseout", mouseOut);
+       .on("mouseenter", mouseOver)
+       .on("mouseleave", mouseOut);
 
   node.append("title")
       .text(function(d) {
@@ -82,7 +83,7 @@ d3.json("graph.json", function(error, graph) {
                 if (d.probe.includes(pb[i])){
                     d3.select(this)
                       .style("stroke", "#e34a33")
-                      .style("opacity", .8)
+                      .attr("opacity", .8)
                       .attr("stroke-width", function(d) { return 6 * Math.sqrt(d.probe.length); });
                     break;
                 }
@@ -99,8 +100,8 @@ d3.json("graph.json", function(error, graph) {
           .attr("fill", function(d) {return color(d.termination); });
         d3.selectAll('line')
           .style("stroke", "#999")
-          .style("opacity", 0.6)
-          .attr("stroke-width", function(d) { return 2 * Math.sqrt(d.probe.length); });
+          .attr("stroke-width", function(d) { return 2 * Math.sqrt(d.probe.length); })
+          .attr("opacity", function(d) { return (d.probe.length > 30) ? 0.6: .1; } );
         }
     }
 
