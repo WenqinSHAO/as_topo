@@ -22,7 +22,8 @@ d3.json("graph.json", function(error, graph) {
     .data(graph.links)
     .enter().append("line")
       .attr("stroke-width", function(d) { return 2 * Math.sqrt(d.probe.length); })
-      .attr("opacity", function(d) { return (d.probe.length > 30) ? 0.6: .1; } );
+      .attr("opacity", function(d) { return (d.probe.length > 30) ? 0.6: .1; } )
+      .on("dblclick", saveLink);
 
   var node = svg.append("g")
       .attr("class", "nodes")
@@ -128,6 +129,12 @@ d3.json("graph.json", function(error, graph) {
     }
   }
 
+    function saveLink(d, i) {
+        var blob = new Blob([d.probe.join('\n')], {type: "text/plain;charset=utf-8"});
+        var fn = d.src_name.toString() + '_' + d.tgt_name.toString() + '.txt';
+        saveAs(blob, fn);
+        alert("IDs of " + d.probe.length.toString() + " probes on (" + d.src_name.toString() + ', ' + d.tgt_name.toString() + " ) saved to file: " + fn);
+    }
 });
 
 function dragstarted(d) {
