@@ -13,8 +13,6 @@ var simulation = d3.forceSimulation()
     .force("charge", d3.forceManyBody())
     .force("center", d3.forceCenter(width / 2, height / 2));
 
-var toggle = 0
-
 d3.json("graph.json", function(error, graph) {
   if (error) throw error;
 
@@ -47,8 +45,7 @@ d3.json("graph.json", function(error, graph) {
           .on("start", dragstarted)
           .on("drag", dragged)
           .on("end", dragended))
-       .on("mouseenter", mouseOver)
-       .on("mouseleave", mouseOut);
+       .on("click", showPath);
 
   node.append("title")
       .text(function(d) {
@@ -83,49 +80,53 @@ d3.json("graph.json", function(error, graph) {
         .attr("cy", function(d) { return d.y; });
   }
 
-  function mouseOver(d, i) {
-    d3.select(this)
-      .attr("r", 10);
-    if (_.has(d, 'hosting')){
-        d3.select(this)
-          .attr("fill", "#4a1486");
+  function showPath(d, i ) {
+    if (!d3.select(this).classed('show-path')) {
+        if (_.has(d, 'hosting')) {
+            d3.select(this).attr("fill", "#4a1486");
+            var pb = d.hosting;
+            d3.selectAll('line').each(function (d) {
+            for (var i = 0; i < pb.length; i++) {
+                if (d.probe.includes(pb[i])){
+                    d3.select(this)
+                      .style("stroke", "#e34a33")
+                      .attr("opacity", .3)
+                      .attr("stroke-width", function(d) { return 6 * Math.sqrt(d.probe.length); });
+                    break;
+                    }
+                }
+            });
+            d3.select(this).attr('r', 10).classed('show-path', true);
+        }
+    } else {
+        if (_.has(d, 'hosting')){
+            d3.select(this).attr("fill", function(d) {
+            if (d.tag.includes(3)) {
+                return color(3);
+            } else if (d.tag.includes(2)) {
+                return color(2);
+            } else if (d.tag.includes(1)) {
+                return color(1);
+            } else {
+                return color(4)
+            }
+        });
         var pb = d.hosting;
         d3.selectAll('line').each(function (d) {
             for (var i = 0; i < pb.length; i++) {
                 if (d.probe.includes(pb[i])){
                     d3.select(this)
-                      .style("stroke", "#e34a33")
-                      .attr("opacity", .8)
-                      .attr("stroke-width", function(d) { return 6 * Math.sqrt(d.probe.length); });
+                      .style("stroke", "#999")
+                      .attr("stroke-width", function(d) { return 2 * Math.sqrt(d.probe.length); })
+                      .attr("opacity", function(d) { return (d.probe.length > 30) ? 0.6: .1; } );
                     break;
-                }
+                 }
             }
-        });
+            });
+        d3.select(this).attr("r", 6).classed('show-path', false);
+        }
     }
   }
-
-  function mouseOut(d, i) {
-    d3.select(this)
-      .attr("r", 6);
-    if (_.has(d, 'hosting')){
-        d3.select(this)
-          .attr("fill", function(d) {
-        if (d.tag.includes(3)) {
-            return color(3);
-        } else if (d.tag.includes(2)) {
-            return color(2);
-        } else if (d.tag.includes(1)) {
-            return color(1);
-        } else {
-            return color(4)
-        }
-       });
-        d3.selectAll('line')
-          .style("stroke", "#999")
-          .attr("stroke-width", function(d) { return 2 * Math.sqrt(d.probe.length); })
-          .attr("opacity", function(d) { return (d.probe.length > 30) ? 0.6: .1; } );
-        }
-    }
 
 });
 
