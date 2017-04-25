@@ -1,7 +1,9 @@
 # What is it about?
 This project visualizes the RIPE traceroute measurements collected in [a previous project](https://github.com/WenqinSHAO/rtt.git)
 on RTT change detection and correlation with path changes.
+
 ![Screenshot of the visualization interface](./screenshot.png)
+
 # How to use?
 1. Generate a topology graph from paths measured by traceroute;
 2. visualize the generated graph in web in an interactive manner.
@@ -20,7 +22,7 @@ Therefore, [as_graph.py](./as_graph.py) reads the __asn_path__ attribute of each
 in building the topology graph.
 
 More detailed usage:
-```bash
+```
 $ python as_graph.py -h
 usage: as_graph.py [-h] [-d DIRECTORY] [-s SUFFIX] [-e END] [-b BEGINTIME]
                    [-t STOPTIME] [-o OUTFILE]
@@ -85,5 +87,6 @@ Single click on a source node will shown all the links that all its probes took 
 
 # Requirements
 Python library [networkX](https://networkx.github.io) is required in building the topology graph.
+
 [d3](https://d3js.org), [FileSaver](https://github.com/eligrey/FileSaver.js.git), [lodash](https://lodash.com) is
 required by the [js_lib/vis.js](./js_lib/vis.js).
