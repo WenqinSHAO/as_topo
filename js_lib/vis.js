@@ -1,5 +1,6 @@
+//container of svg
 var container = d3.select('body').append('div')
-        .attr('id', 'container')
+        .attr('id', 'container');
 
 var svg = container.append("svg")
         .attr('id', 'graph')
@@ -9,6 +10,7 @@ var svg = container.append("svg")
 var width = svg.attr('width');
 var height = svg.attr('height');
 
+// button to choose local files
 // TODO: http://jsfiddle.net/u2kJq/241/
 // right click to load file could be better
 var button = d3.select('body').append("input")
@@ -24,22 +26,26 @@ var button = d3.select('body').append("input")
                     // The following call results in an "Access denied" error in IE.
                     // heard that readAsText might help.
                     // http://bl.ocks.org/hlvoorhees/9d58e173825aed1e0218
+                    // clean the svg
                     d3.selectAll('line').remove();
                     d3.selectAll('circle').remove();
+                    // handle new data from file
                     plot(dataUrl);
                 };
                 reader.readAsDataURL(file);
             }
         });
 
+// text box for graph info
 var graphinfo = d3.select("body").append("pre")
         .attr('id', 'graphinfo');
 
+// node color legend:
+// 1 for source; 2 for ixp; 3 for dst; 4 for all the others
 var color = d3.scaleOrdinal()
     .domain([1,2,3,4])
     .range(["#bebada", "#fdb462", "#e41a1c", "#b3de69"]);
-    // node color legend:
-    // 1 for source; 2 for ixp; 3 for dst; 4 for all the others
+
 
 var simulation = d3.forceSimulation()
     .force("link", d3.forceLink().id(function(d) { return d.id; }))
@@ -184,5 +190,5 @@ function dragended(d) {
   d.fx = null;
   d.fy = null;
 }
-
+// load example graph at the beginning
 plot("example.json")
