@@ -1,7 +1,7 @@
 # What is it about?
 This project visualizes the RIPE traceroute measurements collected in [a previous project](https://github.com/WenqinSHAO/rtt.git)
 on RTT change detection and correlation with path changes.
-![Screenshot of the visualization interface](screeshot.png)
+![Screenshot of the visualization interface](./screenshot.png)
 # How to use?
 1. Generate a topology graph from paths measured by traceroute;
 2. visualize the generated graph in web in an interactive manner.
