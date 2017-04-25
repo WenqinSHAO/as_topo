@@ -77,7 +77,7 @@ def worker(fn, end=None, begin=None, stop=None):
                 stop_idx = None
         else:
             begin_idx = None
-        logging.debug("Probe %s, begin idx = %r, stop idx = %r" % (pb, begin_idx, stop_idx))
+        #logging.debug("Probe %s, begin idx = %r, stop idx = %r" % (pb, begin_idx, stop_idx))
         if end:
             if begin or stop:
                 as_path = [[j for j in i if j not in RM_HOP] for i in traceroute[pb]['asn_path'][begin_idx : stop_idx] if end in i]
@@ -156,6 +156,9 @@ def main():
     parser.add_argument("-t", "--stopTime",
                         help="the ending moment for traceroute rendering, format % s" % '%Y-%m-%d %H:%M:%S %z',
                         action='store')
+    parser.add_argument("-o", "--outfile",
+                        help="Specify the name of output .json file",
+                        action="store")
     args = parser.parse_args()
     args_dict = vars(args)
     if not args.directory or not args.suffix:
@@ -219,7 +222,9 @@ def main():
         g.graph[k] = v
 
     d = t.node_link_data_modify(g)
-    json.dump(d, open('graph.json', 'w'))
+
+    out_fn = args.outfile if args.outfile else 'graph.json'
+    json.dump(d, open(out_fn, 'w'))
 
     t2 = time.time()
     logging.info("Graph formulated and saved in %.2f sec." % (t2-t1))
