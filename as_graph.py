@@ -80,7 +80,7 @@ def worker(fn, end=None, begin=None, stop=None):
         #logging.debug("Probe %s, begin idx = %r, stop idx = %r" % (pb, begin_idx, stop_idx))
         if end:
             if begin or stop:
-                as_path = [[j for j in i if j not in RM_HOP] for i in traceroute[pb]['asn_path'][begin_idx : stop_idx] if end in i]
+                as_path = [[j for j in i if j not in RM_HOP] for i in traceroute[pb]['asn_path'][begin_idx:stop_idx] if end in i]
             else:
                 try:
                     as_path = [next([j for j in i if j not in RM_HOP] for i in traceroute[pb]['asn_path'] if end in i)]
@@ -88,7 +88,7 @@ def worker(fn, end=None, begin=None, stop=None):
                     as_path = []
         else:
             if begin or stop:
-                as_path = [[j for j in i if j not in RM_HOP] for i in traceroute[pb]['asn_path'][begin_idx : stop_idx]]
+                as_path = [[j for j in i if j not in RM_HOP] for i in traceroute[pb]['asn_path'][begin_idx:stop_idx]]
             else:
                 try:
                     as_path = [next([j for j in i if j not in RM_HOP] for i in traceroute[pb]['asn_path'])]
