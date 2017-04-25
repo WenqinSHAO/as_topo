@@ -1,11 +1,16 @@
-var container = d3.select('body').append('div').attr('id', 'container');
+var container = d3.select('body').append('div')
+        .attr('id', 'container')
 
 var svg = container.append("svg")
         .attr('id', 'graph')
         .attr('width', 5000)
         .attr('height', 5000);
 
+var width = svg.attr('width');
+var height = svg.attr('height');
 
+// TODO: http://jsfiddle.net/u2kJq/241/
+// right click to load file could be better
 var button = d3.select('body').append("input")
         .attr("type", "file")
         .attr("accept", ".json")
@@ -27,8 +32,8 @@ var button = d3.select('body').append("input")
             }
         });
 
-var width = svg.attr('width');
-var height = svg.attr('height');
+var graphinfo = d3.select("body").append("pre")
+        .attr('id', 'graphinfo');
 
 var color = d3.scaleOrdinal()
     .domain([1,2,3,4])
@@ -45,6 +50,8 @@ var plot = function(fileUrl) {
 
 d3.json(fileUrl, function(error, graph) {
       if (error) throw error;
+
+      d3.select("#graphinfo").text(JSON.stringify(graph.graph, undefined, 2));
 
       var link = svg.append("g")
         .attr("class", "links")
