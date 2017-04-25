@@ -1,6 +1,34 @@
-var svg = d3.select("svg"),
-    width = +svg.attr("width"),
-    height = +svg.attr("height");
+var container = d3.select('body').append('div').attr('id', 'container');
+
+var svg = container.append("svg")
+        .attr('id', 'graph')
+        .attr('width', 5000)
+        .attr('height', 5000);
+
+
+var button = d3.select('body').append("input")
+        .attr("type", "file")
+        .attr("accept", ".json")
+        .style("margin", "5px")
+        .on("change", function() {
+            var file = d3.event.target.files[0];
+            if (file) {
+                var reader = new FileReader();
+                reader.onloadend = function(evt) {
+                    var dataUrl = evt.target.result;
+                    // The following call results in an "Access denied" error in IE.
+                    // heard that readAsText might help.
+                    // http://bl.ocks.org/hlvoorhees/9d58e173825aed1e0218
+                    d3.selectAll('line').remove();
+                    d3.selectAll('circle').remove();
+                    plot(dataUrl);
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+var width = svg.attr('width');
+var height = svg.attr('height');
 
 var color = d3.scaleOrdinal()
     .domain([1,2,3,4])
@@ -13,7 +41,9 @@ var simulation = d3.forceSimulation()
     .force("charge", d3.forceManyBody())
     .force("center", d3.forceCenter(width / 2, height / 2));
 
-d3.json("graph.json", function(error, graph) {
+var plot = function(fileUrl) {
+
+d3.json(fileUrl, function(error, graph) {
       if (error) throw error;
 
       var link = svg.append("g")
@@ -22,7 +52,7 @@ d3.json("graph.json", function(error, graph) {
         .data(graph.links)
         .enter().append("line")
             .attr("stroke-width", function(d) { return 2 * Math.sqrt(d.probe.length); })
-            .attr("opacity", function(d) { return (d.probe.length > 30) ? 0.6: .1; } )
+            .attr("opacity", function(d) { return (d.probe.length > 30) ? 0.6: 0.1; } )
             .on("dblclick", saveLink);
 
       var node = svg.append("g")
@@ -99,7 +129,7 @@ d3.json("graph.json", function(error, graph) {
                         d3.select(this)
                           .style("stroke", "#999")
                           .attr("stroke-width", function(d) { return 2 * Math.sqrt(d.probe.length); })
-                          .attr("opacity", function(d) { return (d.probe.length > 30) ? 0.6: .1; } );
+                          .attr("opacity", function(d) { return (d.probe.length > 30) ? 0.6: 0.1; } );
                         break;
                      }
                 }
@@ -128,8 +158,8 @@ d3.json("graph.json", function(error, graph) {
         }
     }
 
-
     });
+}
 
 function dragstarted(d) {
   if (!d3.event.active) simulation.alphaTarget(0.3).restart();
@@ -147,3 +177,5 @@ function dragended(d) {
   d.fx = null;
   d.fy = null;
 }
+
+plot("graph.json")
