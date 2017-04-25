@@ -27,8 +27,7 @@ var button = d3.select('body').append("input")
                     // heard that readAsText might help.
                     // http://bl.ocks.org/hlvoorhees/9d58e173825aed1e0218
                     // clean the svg
-                    d3.selectAll('line').remove();
-                    d3.selectAll('circle').remove();
+                    svg.selectAll("*").remove();
                     // handle new data from file
                     plot(dataUrl);
                 };
