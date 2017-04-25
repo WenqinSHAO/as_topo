@@ -151,10 +151,10 @@ def main():
                         help="if all the measurements have a common destination, specify it with this flag",
                         action="store")
     parser.add_argument("-b", "--beginTime",
-                        help="the beginning moment for traceroute rendering, format %s" % '%Y-%m-%d %H:%M:%S %z',
+                        help="the beginning moment for traceroute rendering, format %s" % "%%Y-%%m-%%d %%H:%%M:%%S %%z",
                         action='store')
     parser.add_argument("-t", "--stopTime",
-                        help="the ending moment for traceroute rendering, format % s" % '%Y-%m-%d %H:%M:%S %z',
+                        help="the ending moment for traceroute rendering, format %s" % "%%Y-%%m-%%d %%H:%%M:%%S %%z",
                         action='store')
     parser.add_argument("-o", "--outfile",
                         help="Specify the name of output .json file",
