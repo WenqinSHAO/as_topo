@@ -178,4 +178,4 @@ function dragended(d) {
   d.fy = null;
 }
 
-plot("graph.json")
+plot("example.json")
