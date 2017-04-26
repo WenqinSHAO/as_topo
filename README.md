@@ -14,9 +14,13 @@ However it only allows a handful probes to be visualized at a time.
 With the tools provided in this work, we are able to quickly and interactively
 plot and query the AS-level topology learnt from traceroutes initiated by more than 6000 RIPE Atlas probes toward DNS b-root.
 
-## From paths to graphs
+## From paths to topology graph
+Traceroute measurements from RIPE Atlas are the input to this project.
+Tools are built previously to translate IP hops to AS hops.
+The presence of IXP is as well detected.
 The data format of processed RIPE traceroute measurement is specified in the [docs](https://github.com/WenqinSHAO/rtt/blob/master/docs/path_analysis.md#output)
-of the previous project. Those processed measurements are the input to this work.
+of the previous project.
+
 For the moment being, this work focuses on the topology visualization at AS level.
 Therefore, [as_graph.py](./as_graph.py) reads the __asn_path__ attribute of each probe
 in building the topology graph.
