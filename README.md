@@ -2,7 +2,7 @@
 This project visualizes the RIPE traceroute measurements collected in [a previous project](https://github.com/WenqinSHAO/rtt.git)
 on RTT change detection and correlation with path changes.
 
-![Screenshot of the visualization interface](./screenshot.png)
+![Screenshot of the visualization interface](./screenshot.gif)
 
 RIPE Atlas recently released a visual tool [TraceMON](https://labs.ripe.net/Members/massimo_candela/tracemon-traceroute-visualisation-network-debugging-tool)
 for their traceroute measurements.
@@ -75,8 +75,7 @@ $ python -m SimpleHTTPServer 8000
 ```
 and then visit [http://localhost:8000/graph.html](http://localhost:8000/graph.html).
 
-The web page loads the [example.json](./example.json) at the beginning.
-One can also select and visualize other .json files locally available.
+One can also select and visualize .json files locally available.
 At the bottom of the page, we provide as well the parameters fed to [as_graph.py](./as_graph.py)
 in building the graph.
 
