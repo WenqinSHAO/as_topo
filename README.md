@@ -67,14 +67,6 @@ of AS topologh revealed by traceroute measurements.
 One can directly open [graph.html](./graph.html) in his favorite browser for that purpose.
 (NOTE: code only tested with Chrome and Safari.)
 
-In case that the browser refuses to read local file due to security considerations, one
-can start a simple httpserver serving the project directory
-```bash
-$ python -m SimpleHTTPServer 8000
-
-```
-and then visit [http://localhost:8000/graph.html](http://localhost:8000/graph.html).
-
 One can also select and visualize .json files locally available.
 At the bottom of the page, we provide as well the parameters fed to [as_graph.py](./as_graph.py)
 in building the graph.
