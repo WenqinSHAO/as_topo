@@ -1,3 +1,4 @@
+// the script is based on https://bl.ocks.org/mbostock/4062045
 //container of svg
 var container = d3.select('body').append('div')
         .attr('id', 'container');
