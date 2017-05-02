@@ -4,15 +4,15 @@ on RTT change detection and correlation with path changes.
 
 ![Screenshot of the visualization interface](./screenshot.png)
 
-# How to use?
-1. Generate a topology graph from paths measured by traceroute;
-2. visualize the generated graph in web in an interactive manner.
-
 RIPE Atlas recently released a visual tool [TraceMON](https://labs.ripe.net/Members/massimo_candela/tracemon-traceroute-visualisation-network-debugging-tool)
 for their traceroute measurements.
 However it only allows a handful probes to be visualized at a time.
 With the tools provided in this work, we are able to quickly and interactively
 plot and query the AS-level topology learnt from traceroutes initiated by more than 6000 RIPE Atlas probes toward DNS b-root.
+
+# How to use?
+1. Generate a topology graph from paths measured by traceroute;
+2. visualize the generated graph in an interactive manner.
 
 ## From paths to topology graph
 Traceroute measurements from RIPE Atlas are the input to this project.
