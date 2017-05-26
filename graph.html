@@ -14,18 +14,48 @@ div#container {
     max-width: 95vw;
 }
 
-.links line {
-  stroke: #999;
-}
-
 .nodes circle {
   stroke: #fff;
   stroke-width: 1.5px;
 }
+div.nodetip {
+    position: absolute;
+    text-align: left;
+    padding: 2px;
+    font: 10px sans-serif;
+    background: #fd8d3c;
+    border: 0px;
+    border-radius: 8px;
+    pointer-events: none;
+    display: inline-block;
+}
+div.linktip {
+    position: absolute;
+    text-align: left;
+    font: 10px sans-serif;
+    background: #fd8d3c;
+    border: 0px;
+    border-radius: 8px;
+    pointer-events: none;
+    display: inline-block;
+}
 </style>
+
 <body>
+<div class="param" id="input">
+    <input type="text" id="datetime" size="16"/>
+    <input name="updateButton" id ="previous" type="button" value="Prev bin" />
+    <input name="updateButton" id ="next" type="button" value="Next bin" />
+    <input type="file" id="file_input" accept=".json" size="200">
+</div>
+<div id="container">
+    <svg id="graph"></svg>
+</div>
+<pre id="graphinfo"></pre>
 </body>
+
 <script src="https://d3js.org/d3.v4.min.js"></script>
+<script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
 <script type="text/javascript" src="./js_lib/lodash.js"></script>
 <script type="text/javascript" src="./js_lib/FileSaver.js"></script>
 <script type="text/javascript" src='./js_lib/vis.js'></script>
