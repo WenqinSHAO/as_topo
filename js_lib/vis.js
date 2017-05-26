@@ -249,7 +249,8 @@ function update() {
         moment = Math.floor(m / (bin_size * 1000)) * bin_size * 1000;
         document.getElementById("datetime").value = tformatter(moment);
         svg.selectAll("line")
-            .attr("congestion_level", congestion)
+            .attr("congestion_level", congestion);
+        svg.selectAll("line")cd
             .attr("stroke", linkColor)
             .attr("opacity", linkOpacity);
     } else {
