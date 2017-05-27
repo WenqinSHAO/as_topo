@@ -125,3 +125,31 @@ def compose_all_modify(graphs):
     for H in graphs:
         C = compose_modify(C, H)
     return C
+
+
+def find_branches(graph, n1, n2):
+    """ find all the links sharing nodes with the given link (n1, n2)
+    Args:
+        graph (nx.Graph)
+        n1 (int): one node of the link
+        n2 (int): the other node of the link
+    Returns:
+        dict{n1: [(x, probe # on (n1,x), common pb # with (n1, n2))...], n2: []}
+        empty dict in the case (n1, n2) is not an edge in graph
+
+    """
+    try:
+        pbs = set(graph.edge[n1][n2]['probe'])
+    except KeyError:
+        return {}
+    res = {n1: [], n2: []}
+    for tup in [(n1, n2), (n2, n1)]:
+        n, other = tup
+        for neighbour in graph.neighbors(n):
+            if neighbour != other:
+                n_pbs = set(graph.edge[n][neighbour]['probe'])
+                common = n_pbs & pbs
+                res[n].append((neighbour, len(n_pbs), len(common)))
+    return res
+
+
