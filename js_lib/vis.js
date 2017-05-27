@@ -250,7 +250,7 @@ function update() {
         document.getElementById("datetime").value = tformatter(moment);
         svg.selectAll("line")
             .attr("congestion_level", congestion);
-        svg.selectAll("line")cd
+        svg.selectAll("line")
             .attr("stroke", linkColor)
             .attr("opacity", linkOpacity);
     } else {
