@@ -134,7 +134,7 @@ def main():
         pb_count = len(topo[l[0]][l[1]]['probe'])
         assert pb_count != 0
         for t in topo[l[0]][l[1]]['congestion']:
-            topo[l[0]][l[1]]['congestion'][t] /= pb_count
+            topo[l[0]][l[1]]['congestion'][t] /= float(pb_count)
     t4 = time.time()
     logging.debug("Normalize congestion index in %.2f sec" % (t4-t3))
 
