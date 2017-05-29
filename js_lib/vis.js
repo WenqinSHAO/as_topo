@@ -30,7 +30,7 @@ var color = d3.scaleOrdinal()
 var tparser = d3.utcParse("%Y-%m-%d %H:%M");
 var tformatter = d3.utcFormat("%Y-%m-%d %H:%M");
 
-var opened_f, loaded_data, moment, is_congestion_graph, bin_size, begin, end;
+var opened_f, loaded_data, moment, is_congestion_graph, show_inference_result, bin_size, begin, end;
 
 function plot() {
     var file = document.getElementById("file_input");
@@ -68,6 +68,7 @@ function plot() {
 }
 
 function init() {
+
       if (loaded_data.hasOwnProperty("congestion")) {
         is_congestion_graph = loaded_data.congestion;
         //console.log("is congestion graph " + is_congestion_graph);
@@ -96,6 +97,8 @@ function init() {
             document.getElementById("datetime").value = tformatter(moment);
           }
       }
+
+      show_inference_result = false;
 
       var simulation = d3.forceSimulation()
             .force("link", d3.forceLink().id(function(d) { return d.id; }))
@@ -128,8 +131,9 @@ function init() {
         .data(loaded_data.links)
         .enter().append("line")
             .attr("congestion_level", congestion)
+            .attr("inference", inference)
             .attr("stroke", linkColor)
-            .attr("stroke-width", function(d) { return 2 * Math.sqrt(d.probe.length); })
+            .attr("stroke-width", linkWidth)
             .attr("opacity", linkOpacity)
             .on("dblclick", saveLink)
             .on("mouseover", function(d) {
@@ -157,7 +161,10 @@ function init() {
         .data(loaded_data.nodes)
         .enter().append("circle")
             .attr("r", 6)
+            .attr("inference", inference)
             .attr("fill", nodeColor)
+            .attr("stroke", nodeBorder)
+            .attr("stroke-width", 2)
             .call(d3.drag()
                     .on("start", dragstarted)
                     .on("drag", dragged)
@@ -203,56 +210,24 @@ function init() {
       }
 }
 
-// what happens once a node is clicked
-function showPath(d) {
-    if (!d3.select(this).classed('show-path')) {
-        if (_.has(d, 'hosting')) {
-            d3.select(this).attr("fill", "#4a1486");
-            var pb = d.hosting;
-            d3.selectAll('line').each(function (d) {
-                for (var i = 0; i < pb.length; i++) {
-                    if (d.probe.includes(pb[i])){
-                        d3.select(this)
-                            .style("stroke", linkColorSelected)
-                            .attr("opacity", .3)
-                            .attr("stroke-width", function(d) { return 6 * Math.sqrt(d.probe.length); });
-                        break;
-                    }
-                }
-            });
-            d3.select(this).attr('r', 10).classed('show-path', true);
-        }
-    } else {
-        if (_.has(d, 'hosting')){
-            d3.select(this).attr("fill", nodeColor);
-            var pb = d.hosting;
-            d3.selectAll('line').each(function (d) {
-                for (var i = 0; i < pb.length; i++) {
-                    if (d.probe.includes(pb[i])){
-                        d3.select(this)
-                            .style("stroke", linkColor)
-                            .attr("stroke-width", function(d) { return 2 * Math.sqrt(d.probe.length); })
-                            .attr("opacity", linkOpacity);
-                        break;
-                    }
-                }
-            });
-            d3.select(this).attr("r", 6).classed('show-path', false);
-        }
-    }
-}
-
 function update() {
     if (is_congestion_graph) {
         var m =  tparser(document.getElementById("datetime").value);
         m = m ? m : begin;
         moment = Math.floor(m / (bin_size * 1000)) * bin_size * 1000;
         document.getElementById("datetime").value = tformatter(moment);
+
         svg.selectAll("line")
-            .attr("congestion_level", congestion);
+            .attr("congestion_level", congestion)
+            .attr("inference", inference);
         svg.selectAll("line")
             .attr("stroke", linkColor)
             .attr("opacity", linkOpacity);
+
+        svg.selectAll("circle")
+            .attr("inference", inference);
+        svg.selectAll("circle")
+            .attr("stroke", nodeBorder)
     } else {
         alert("Only congestion graph can be navigated in time.");
     }
@@ -262,74 +237,6 @@ function navigator(is_forward) {
     var m = is_forward? moment + bin_size * 1000 : moment - bin_size * 1000;
     document.getElementById("datetime").value = tformatter(m);
     update();
-}
-
-// what happens if a link is double clicked
-function saveLink(d) {
-    var blob = new Blob([d.probe.join('\n')], {type: "text/plain;charset=utf-8"});
-    var fn = d.src_name.toString() + '_' + d.tgt_name.toString() + '.txt';
-    saveAs(blob, fn);
-    alert("IDs of " + d.probe.length.toString() + " probes on (" + d.src_name.toString() + ', ' + d.tgt_name.toString() + " ) saved to file: " + fn);
-}
-
-function nodeColor(d) {
-    if (d.tag.includes(3)) {
-        return color(3);
-    } else if (d.tag.includes(2)) {
-        return color(2);
-    } else if (d.tag.includes(1)) {
-        return color(1);
-    } else {
-        return color(4);
-    }
-}
-
-function congestion(d) {
-    if(is_congestion_graph){
-        return datetimeSearch(d.congestion, moment);
-    } else {
-        return 'NA';
-    }
-}
-
-function linkOpacity(d) {
-    if (is_congestion_graph) {
-        var level = d3.select(this).attr("congestion_level");
-        if (level && level >.1) {
-            return .6;
-        } else {
-            return .1;
-        }
-    } else {
-        return (d.probe.length > 30) ? 0.6: 0.1;
-    }
-}
-
-function linkColor(d) {
-    if(is_congestion_graph){
-        var level = d3.select(this).attr("congestion_level");
-        if (level && level > .1) {
-            return d3.interpolateReds(level);
-        } else {
-        return "#999"
-        }
-    } else {
-        return "#999";
-    }
-}
-
-
-function linkColorSelected(d) {
-    if(is_congestion_graph){
-        var level = d3.select(this).attr("congestion_level");
-        if (level && level > .1) {
-            return d3.interpolateRdPu(level);
-        } else {
-            return "#999"
-        }
-    } else {
-        return "#e34a31";
-    }
 }
 
 function datetimeSearch(arr, v) {
@@ -348,13 +255,173 @@ function datetimeSearch(arr, v) {
             high = mid;
         }
     }
-    return null;
+    return 'NA';
 }
+
+
+// what happens if a link is double clicked
+function saveLink(d) {
+    var blob = new Blob([d.probe.join('\n')], {type: "text/plain;charset=utf-8"});
+    var fn = d.src_name.toString() + '_' + d.tgt_name.toString() + '.txt';
+    saveAs(blob, fn);
+    alert("IDs of " + d.probe.length.toString() + " probes on (" + d.src_name.toString() + ', ' + d.tgt_name.toString() + " ) saved to file: " + fn);
+}
+
+// what happens once a node is clicked
+function showPath(d) {
+    var n = d3.select(this);
+    if (d.hasOwnProperty("hosting")){
+        var pb = d.hosting;
+        if (!n.classed("show-path")) {
+            n.classed("show-path", true)
+                .attr("r", 10)
+                .attr("fill", nodeColor);
+            d3.selectAll('line').each(function (d) {
+                for (var i = 0; i < pb.length; i++) {
+                    if (d.probe.includes(pb[i])) {
+                        d3.select(this)
+                            .classed("show-path", true)
+                            .attr("stroke", linkColor)
+                            .attr("stroke-width", linkWidth)
+                            .attr("opacity", linkOpacity);
+                        break;
+                    }
+                }
+            });
+        } else {
+            n.classed("show-path", false)
+                .attr("r", 6)
+                .attr("fill", nodeColor);
+            d3.selectAll('line').each(function (d) {
+                for (var i = 0; i < pb.length; i++) {
+                    if (d.probe.includes(pb[i])) {
+                        d3.select(this)
+                            .classed("show-path", false)
+                            .attr("stroke", linkColor)
+                            .attr("stroke-width", linkWidth)
+                            .attr("opacity", linkOpacity);
+                        break;
+                    }
+                }
+            });
+        }
+    }
+}
+
+function congestion(d) {
+    if(is_congestion_graph){
+        return datetimeSearch(d.congestion, moment);
+    } else {
+        return 'NA';
+    }
+}
+
+function inference(d) {
+    if(is_congestion_graph){
+        return datetimeSearch(d.inference, moment);
+    } else {
+        return 'NA';
+    }
+}
+
+function nodeColor(d) {
+    if (!d3.select(this).classed("show-path")){
+        if (d.tag.includes(3)) {
+            return color(3); // dst
+        } else if (d.tag.includes(2)) {
+            return color(2); // ixp
+        } else if (d.tag.includes(1)) {
+            return color(1); // source
+        } else {
+            return color(4); // others
+        }
+    } else {
+        return "#4a1486";
+    }
+}
+
+function linkOpacity(d) {
+    if (d3.select(this).classed("show-path")) {
+        return 0.9;
+    } else {
+        if (is_congestion_graph) {
+            var level = d3.select(this).attr("congestion_level");
+            if (level && level >.1) {
+                return .6;
+            } else {
+                return .1;
+            }
+        } else {
+
+            return (d.probe.length > 30) ? 0.6: 0.1;
+        }
+    }
+}
+
+function linkWidth(d) {
+    if (!d3.select(this).classed("show-path")) {
+        return 2 * Math.sqrt(d.probe.length);
+    } else {
+        return 6 * Math.sqrt(d.probe.length);
+    }
+}
+
+function linkColor(d) {
+    if(is_congestion_graph){
+    // case of congestion graph
+        if (show_inference_result) {
+        // case of show inference result
+            var res = d3.select(this).attr("inference");
+            if (res == 'true' || res === true) {
+                return "#810f7c";
+            } else {
+                return "#74c476";
+            }
+        } else {
+        // case of congestion index level
+            var level = d3.select(this).attr("congestion_level");
+            if (level && level > .1) {
+                return d3.interpolateReds(level);
+            } else {
+            return "#999"
+            }
+        }
+    } else {
+    // case of naive topo graph
+        if (d3.select(this).classed("show-path")) {
+        // link selected
+            return "#e34a31";
+        } else {
+        // link not selected
+            return "#999";
+        }
+    }
+}
+
+function nodeBorder(d) {
+    if (is_congestion_graph) {
+        if (show_inference_result) {
+            var res = d3.select(this).attr("inference");
+            if (res == 'true' || res === true) {
+                return "#810f7c";
+            } else {
+                return "#74c476";
+            }
+        }
+    }
+    return "white";
+ }
+
+
 
 d3.select('body')
     .on("keydown", function (){
         if (d3.event.shiftKey) {
             switch(d3.event.keyCode) {
+                case 13:
+                    show_inference_result = show_inference_result? false: true;
+                    update();
+                    break;
                 case 39:
                     navigator(true);
                     break;
