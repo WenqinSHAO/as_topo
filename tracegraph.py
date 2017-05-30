@@ -1,6 +1,9 @@
 import networkx as nx
 from itertools import count, chain
 from collections import defaultdict
+import time
+import json
+import logging
 
 _attrs = dict(id='id', source='source', target='target', key='key', name='name', src_name='src_name', tgt_name='tgt_name')
 
@@ -127,6 +130,138 @@ def compose_all_modify(graphs):
     return C
 
 
+def change_binsum(fn, method, g, pb2links, bin_size, begin, stop):
+    """calculate binned sum of RTT changes for each link in a given topo
+
+    Args:
+        fn (string): path to the RTT file
+        method (string): field in the file to be extracted as the result of change detection
+        g (nx.Graph): network topology learnt from traceroute; link is annotated with probes traverse it
+        pb2links (dict): {probe id : [link in g (n1, n2),...]}
+        bin_size (int): the size of bin in seconds
+        begin (int): sec since epoch from which records in fn is considered
+        stop (int): sec since epoch till which records in fn is considered
+
+    Notes:
+        no return will be provided. update is directly applied to g.
+        g has to be initialized for each of its link a dictionary "score", default to int type.
+    """
+    t1 = time.time()
+
+    try:
+        with open(fn, 'r') as fp:
+            data = json.load(fp)
+    except IOError as e:
+        logging.critical(e)
+        return
+
+    if 'data' in locals() and data:
+        for pb in data:
+            pb_rec = data[pb]
+            if pb_rec:
+                for t, v in zip(pb_rec.get("epoch", []), pb_rec.get(method, [])):
+                    if begin <= t <= stop:
+                        t = (t // bin_size) * bin_size
+                        for l in pb2links.get(pb, []):
+                            g[l[0]][l[1]]['score'][t] += v
+    t2 = time.time()
+    logging.debug("%s handled in %.2f sec" % (fn, t2 - t1))
+
+
+def change_inference(g, link_threshold, node_threshold, bin_size, begin, stop):
+    """perform change location inference
+
+    Args:
+        g (nx.Graph): network topology learnt from traceroute; link is annotated with probes traverse it
+        link_threshold (float): parameter for link inference; minimum portion of trace on that link experience change
+        node_threshold (float): parameter for node inference; portion of links around a node experience change
+        bin_size (int): the size of bin in seconds
+        begin (int): sec since epoch from which records in fn is considered
+        stop (int): sec since epoch till which records in fn is considered
+
+    Notes:
+        no return will be provided. update is directly applied to g.
+        g has to be initialized for each of its link a dictionary "inference", default to int type.
+        1 for inferred (pretty sure) as cause
+        2 for susceptible (not so sure) as cause
+    """
+    t1 = time.time()
+
+    for t in range((begin // bin_size) * bin_size, ((stop // bin_size) + 1) * bin_size, bin_size):
+        for l in g.edges_iter():
+            if g[l[0]][l[1]]['score'][t] >= link_threshold:
+
+                branches = find_branches(g, l[0], l[1])
+                ext = {k: [i for i in v if i[-1] > 0] for k, v in branches.items()}
+                sib = {k: [i for i in v if i[-1] == 0] for k, v in branches.items()}
+
+                ext_con_count_abs = {
+                    k: sum([1 if g[i[0]][k]['score'][t] >= link_threshold else 0 for i in v]) for
+                    k, v in ext.items()}
+                ext_con_count_prop = {
+                    k: sum([1 if g[i[0]][k]['score'][t] >= float(i[2])/i[1] * link_threshold else 0 for i in v]) for
+                    k, v in ext.items()}
+                sib_con_count = {
+                    k: sum([1 if g[i[0]][k]['score'][t] >= link_threshold else 0 for i in v]) for
+                    k, v in sib.items()}
+
+                # if the nodes of l being the cause
+                for n in l:
+                    if (sib_con_count[n] > 0 and sib_con_count[n] >= len(sib[n]) * node_threshold) or \
+                            (ext_con_count_abs[n] > 1 and ext_con_count_abs[n] >= len(ext[n]) * node_threshold):
+                        g.node[n]['inference'][t] = 1
+
+                # if the l as the link being the cause
+                # 1/ l has multiple extension branches at both sides
+                if ext_con_count_prop[l[0]] > 1 and ext_con_count_prop[l[1]] > 1:
+                    g[l[0]][l[1]]['inference'][t] = 1
+                # 2/ only one extension branch at the one side
+                elif len(ext[l[0]]) == 1 and ext_con_count_prop[l[1]] > 1:
+                    if ext_con_count_abs[l[0]] < 1:
+                        g[l[0]][l[1]]['inference'][t] = 1
+                    else:
+                        if ext[l[0]][0][1] == ext[l[0]][0][2]:
+                            g[l[0]][l[1]]['inference'][t] = 2  # suspect
+                elif len(ext[l[1]]) == 1 and ext_con_count_prop[l[0]] > 1:
+                    if ext_con_count_abs[l[1]] < 1:
+                        g[l[0]][l[1]]['inference'][t] = 1
+                    else:
+                        if ext[l[1]][0][1] == ext[l[1]][0][2]:
+                            g[l[0]][l[1]]['inference'][t] = 2
+                # 3/ both sides have only only one extension branch
+                elif len(ext[l[0]]) == 1 and len(ext[l[1]]) == 1:
+                    if ext_con_count_abs[l[0]] < 1 and ext_con_count_abs[l[1]] < 1:
+                        g[l[0]][l[1]]['inference'][t] = 1
+                    else:
+                        if ext[l[0]][0][1] == ext[l[0]][0][2] or ext[l[1]][0][1] == ext[l[1]][0][2]:
+                            g[l[0]][l[1]]['inference'][t] = 2
+                # 4/ one side has no extension branch
+                elif len(ext[l[0]]) == 0:
+                    if ext_con_count_prop[l[1]] > 1:
+                        g[l[0]][l[1]]['inference'][t] = 1
+                    elif len(ext[l[1]]) == 1:
+                        if ext_con_count_abs[l[1]] < 1:
+                            g[l[0]][l[1]]['inference'][t] = 1
+                        else:
+                            if ext[l[1]][0][1] == ext[l[1]][0][2]:
+                                g[l[0]][l[1]]['inference'][t] = 2
+                elif len(ext[l[1]]) == 0:
+                    if ext_con_count_prop[l[0]] > 1:
+                        g[l[0]][l[1]]['inference'][t] = 1
+                    elif len(ext[l[0]]) == 1:
+                        if ext_con_count_abs[l[0]] < 1:
+                            g[l[0]][l[1]]['inference'][t] = 1
+                        else:
+                            if ext[l[0]][0][1] == ext[l[0]][0][2]:
+                                g[l[0]][l[1]]['inference'][t] = 2
+                # 5/ both side has no extension branch, i.e standalone link
+                elif len(ext[l[1]]) == 0 and len(ext[l[0]]) == 0:
+                    g[l[0]][l[1]]['inference'][t] = 1
+
+    t2 = time.time()
+    logging.debug("Congestion inference in %.2f sec" % (t2 - t1))
+
+
 def find_branches(graph, n1, n2):
     """ find all the links sharing nodes with the given link (n1, n2)
     Args:
@@ -136,7 +271,6 @@ def find_branches(graph, n1, n2):
     Returns:
         dict{n1: [(x, probe # on (n1,x), common pb # with (n1, n2))...], n2: []}
         empty dict in the case (n1, n2) is not an edge in graph
-
     """
     try:
         pbs = set(graph.edge[n1][n2]['probe'])
