@@ -415,7 +415,7 @@ function nodeBorder(d) {
                 case '2':
                     return "#fd8d3c";
                 default:
-                    return "#74c476";
+                    return "#e5f5e0";
             }
         }
     }
