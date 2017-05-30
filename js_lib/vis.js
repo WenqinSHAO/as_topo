@@ -142,7 +142,7 @@ function init() {
                     .style("opacity", .7);
                 var text = d.probe.length.toString() + " probes on (" + d.src_name+ ", " + d.tgt_name + ")";
                 if (is_congestion_graph) {
-                    text += '<br>' + 'congestion level: ' + d3.select(this).attr("congestion_level");
+                    text += '<br>' + 'change idx: ' + d3.select(this).attr("congestion_level") + '<br> inference: ' + d3.select(this).attr("inference");
                 }
                 linktip.html(text)
                     .style("left", (d3.event.pageX - 80) + "px")
@@ -177,7 +177,7 @@ function init() {
                     .style("opacity", .7);
                 var text = d.name;
                 if (d.hasOwnProperty('hosting')) {
-                    text += "<br> hosting: " + d.hosting.toString();
+                    text += "<br> hosting: " + d.hosting.toString() + '<br> inference: ' + d3.select(this).attr("inference");
                 }
                 nodetip.html(text)
                     .style("left", (d3.event.pageX - 80) + "px")
@@ -310,7 +310,7 @@ function showPath(d) {
 
 function congestion(d) {
     if(is_congestion_graph){
-        return datetimeSearch(d.congestion, moment);
+        return datetimeSearch(d.score, moment);
     } else {
         return 'NA';
     }
@@ -372,10 +372,15 @@ function linkColor(d) {
         if (show_inference_result) {
         // case of show inference result
             var res = d3.select(this).attr("inference");
-            if (res == 'true' || res === true) {
-                return "#810f7c";
-            } else {
-                return "#74c476";
+            switch (res){
+                case 1:
+                case '1':
+                    return "#810f7c";
+                case 2:
+                case '2':
+                    return "#fd8d3c";
+                default:
+                    return "#74c476";
             }
         } else {
         // case of congestion index level
@@ -402,10 +407,15 @@ function nodeBorder(d) {
     if (is_congestion_graph) {
         if (show_inference_result) {
             var res = d3.select(this).attr("inference");
-            if (res == 'true' || res === true) {
-                return "#810f7c";
-            } else {
-                return "#74c476";
+            switch (res){
+                case '1':
+                case 1:
+                    return "#810f7c";
+                case 2:
+                case '2':
+                    return "#fd8d3c";
+                default:
+                    return "#74c476";
             }
         }
     }
