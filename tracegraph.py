@@ -207,10 +207,10 @@ def change_inference(g, link_threshold, node_threshold, bin_size, begin, stop):
 
                 # if the nodes of l being the cause
                 for n in l:
-                    if (sib_con_count[n] > 0 and sib_con_count[n] >= len(sib[n]) * node_threshold) or \
-                            (ext_con_count_abs[n] > 1 and ext_con_count_abs[n] >= len(ext[n]) * node_threshold):
+                    if sib_con_count[n] > 0 and sib_con_count[n] >= len(sib[n]) * node_threshold:
                         g.node[n]['inference'][t] = 1
-                    elif sib_con_count[n] > 0:
+                    elif sib_con_count[n] > 0 or \
+                            (ext_con_count_abs[n] > 1 and ext_con_count_abs[n] >= len(ext[n]) * node_threshold):
                         g.node[n]['inference'][t] = 2
 
                 # if the l as the link being the cause
