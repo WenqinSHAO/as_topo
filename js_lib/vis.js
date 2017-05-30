@@ -373,11 +373,11 @@ function linkColor(d) {
         // case of show inference result
             var res = d3.select(this).attr("inference");
             switch (res){
-                case 1:
-                case '1':
-                    return "#810f7c";
                 case 2:
                 case '2':
+                    return "#810f7c";
+                case 1:
+                case '1':
                     return "#fd8d3c";
                 default:
                     return "#74c476";
@@ -408,11 +408,11 @@ function nodeBorder(d) {
         if (show_inference_result) {
             var res = d3.select(this).attr("inference");
             switch (res){
-                case '1':
-                case 1:
-                    return "#810f7c";
-                case 2:
                 case '2':
+                case 2:
+                    return "#810f7c";
+                case 1:
+                case '1':
                     return "#fd8d3c";
                 default:
                     return "#e5f5e0";

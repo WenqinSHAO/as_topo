@@ -7,6 +7,7 @@ import logging
 
 _attrs = dict(id='id', source='source', target='target', key='key', name='name', src_name='src_name', tgt_name='tgt_name')
 
+SURE, LIKELY = 2, 1
 
 def path_to_graph(paths, probe, g):
     """give a series of paths attached to a given probe, add them to graph g
@@ -182,8 +183,8 @@ def change_inference(g, link_threshold, node_threshold, bin_size, begin, stop):
     Notes:
         no return will be provided. update is directly applied to g.
         g has to be initialized for each of its link a dictionary "inference", default to int type.
-        1 for inferred (pretty sure) as cause
-        2 for susceptible (not so sure) as cause
+        2 (SURE) for inferred (pretty sure) as cause
+        1 (LIKELY) for susceptible (not so sure) as cause
     """
     t1 = time.time()
 
@@ -208,57 +209,57 @@ def change_inference(g, link_threshold, node_threshold, bin_size, begin, stop):
                 # if the nodes of l being the cause
                 for n in l:
                     if sib_con_count[n] > 0 and sib_con_count[n] >= len(sib[n]) * node_threshold:
-                        g.node[n]['inference'][t] = 1
+                        g.node[n]['inference'][t] = max(g.node[n]['inference'][t], SURE)
                     elif sib_con_count[n] > 0 or \
                             (ext_con_count_abs[n] > 1 and ext_con_count_abs[n] >= len(ext[n]) * node_threshold):
-                        g.node[n]['inference'][t] = 2
+                        g.node[n]['inference'][t] = max(g.node[n]['inference'][t], LIKELY)
 
                 # if the l as the link being the cause
                 # 1/ l has multiple extension branches at both sides
                 if ext_con_count_prop[l[0]] > 1 and ext_con_count_prop[l[1]] > 1:
-                    g[l[0]][l[1]]['inference'][t] = 1
+                    g[l[0]][l[1]]['inference'][t] = SURE
                 # 2/ only one extension branch at the one side
                 elif len(ext[l[0]]) == 1 and ext_con_count_prop[l[1]] > 1:
                     if ext_con_count_abs[l[0]] < 1:
-                        g[l[0]][l[1]]['inference'][t] = 1
+                        g[l[0]][l[1]]['inference'][t] = SURE
                     else:
                         if ext[l[0]][0][1] == ext[l[0]][0][2]:
-                            g[l[0]][l[1]]['inference'][t] = 2  # suspect
+                            g[l[0]][l[1]]['inference'][t] = LIKELY  # suspect
                 elif len(ext[l[1]]) == 1 and ext_con_count_prop[l[0]] > 1:
                     if ext_con_count_abs[l[1]] < 1:
-                        g[l[0]][l[1]]['inference'][t] = 1
+                        g[l[0]][l[1]]['inference'][t] = SURE
                     else:
                         if ext[l[1]][0][1] == ext[l[1]][0][2]:
-                            g[l[0]][l[1]]['inference'][t] = 2
+                            g[l[0]][l[1]]['inference'][t] = LIKELY
                 # 3/ both sides have only only one extension branch
                 elif len(ext[l[0]]) == 1 and len(ext[l[1]]) == 1:
                     if ext_con_count_abs[l[0]] < 1 and ext_con_count_abs[l[1]] < 1:
-                        g[l[0]][l[1]]['inference'][t] = 1
+                        g[l[0]][l[1]]['inference'][t] = SURE
                     else:
                         if ext[l[0]][0][1] == ext[l[0]][0][2] or ext[l[1]][0][1] == ext[l[1]][0][2]:
-                            g[l[0]][l[1]]['inference'][t] = 2
+                            g[l[0]][l[1]]['inference'][t] = LIKELY
                 # 4/ one side has no extension branch
                 elif len(ext[l[0]]) == 0:
                     if ext_con_count_prop[l[1]] > 1:
-                        g[l[0]][l[1]]['inference'][t] = 1
+                        g[l[0]][l[1]]['inference'][t] = SURE
                     elif len(ext[l[1]]) == 1:
                         if ext_con_count_abs[l[1]] < 1:
-                            g[l[0]][l[1]]['inference'][t] = 1
+                            g[l[0]][l[1]]['inference'][t] = SURE
                         else:
                             if ext[l[1]][0][1] == ext[l[1]][0][2]:
-                                g[l[0]][l[1]]['inference'][t] = 2
+                                g[l[0]][l[1]]['inference'][t] = LIKELY
                 elif len(ext[l[1]]) == 0:
                     if ext_con_count_prop[l[0]] > 1:
-                        g[l[0]][l[1]]['inference'][t] = 1
+                        g[l[0]][l[1]]['inference'][t] = SURE
                     elif len(ext[l[0]]) == 1:
                         if ext_con_count_abs[l[0]] < 1:
-                            g[l[0]][l[1]]['inference'][t] = 1
+                            g[l[0]][l[1]]['inference'][t] = SURE
                         else:
                             if ext[l[0]][0][1] == ext[l[0]][0][2]:
-                                g[l[0]][l[1]]['inference'][t] = 2
+                                g[l[0]][l[1]]['inference'][t] = LIKELY
                 # 5/ both side has no extension branch, i.e standalone link
                 elif len(ext[l[1]]) == 0 and len(ext[l[0]]) == 0:
-                    g[l[0]][l[1]]['inference'][t] = 1
+                    g[l[0]][l[1]]['inference'][t] = SURE
 
     t2 = time.time()
     logging.debug("Congestion inference in %.2f sec" % (t2 - t1))
