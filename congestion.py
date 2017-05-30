@@ -12,8 +12,8 @@ import timetools as tt
 
 BIN = 600  # bin size in sec
 CH_MTD = "cpt_poisson&MBIC"  # changepoint method for binning
-LINK_THRESHOLD = 0.5  # threshold for link inference
-NODE_THRESHOLD = 0.5  # threshold for node inference
+LINK_THRESHOLD = 0.4  # threshold for link inference
+NODE_THRESHOLD = 0.3  # threshold for node inference
 
 
 def main():
