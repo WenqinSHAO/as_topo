@@ -347,7 +347,7 @@ function linkOpacity(d) {
         if (is_congestion_graph) {
             var level = d3.select(this).attr("congestion_level");
             if (level && level >.1) {
-                return .6;
+                return level;
             } else {
                 return .1;
             }
