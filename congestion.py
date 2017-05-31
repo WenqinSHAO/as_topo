@@ -12,8 +12,8 @@ import timetools as tt
 
 BIN = 600  # bin size in sec
 CH_MTD = "cpt_poisson&MBIC"  # changepoint method for binning
-LINK_THRESHOLD = 0.4  # threshold for link inference
-NODE_THRESHOLD = 0.3  # threshold for node inference
+LINK_THRESHOLD = 0.5  # threshold for link inference
+NODE_THRESHOLD = 0.5  # threshold for node inference
 
 
 def main():
@@ -93,23 +93,43 @@ def main():
     topo.graph['cpt_method'] = CH_MTD
     topo.graph['cpt_bin_size'] = BIN
 
+    pb2links = defaultdict(list)
+    pb2nodes = defaultdict(list)
+    t3 = time.time()
     # learn probe to link map, s.t. given a probe change trace, we know which links are meant to be updated
     # initialize the congestion and inference field for each link and node
-    pb2links = defaultdict(list)
-
     for l in topo.edges_iter():
         topo[l[0]][l[1]]['score'] = defaultdict(int)
         topo[l[0]][l[1]]['inference'] = defaultdict(int)
         for pb in topo[l[0]][l[1]]['probe']:
             pb2links[pb].append(l)
 
+    # initialize the congestion and inference field for each link and node
+    # for each node, a probe set with divergent paths are as well needed to see if the congestion is caused by the node
+    # learn this probe set for each node and form a probe to node dict
     for n in topo.nodes_iter():
+        topo.node[n]['score'] = defaultdict(int)
         topo.node[n]['inference'] = defaultdict(int)
 
-    # calculate the change sum per bin per link
-    # incrementally handle each file
+        p2n = defaultdict(lambda: {n})  # all the nodes traversed by probes on surrounding links
+        for neighbour in topo.neighbors(n):
+            for pb in topo[n][neighbour]["probe"]:
+                p2n[pb].add(neighbour)
+        n_pb, res = tg.divergent_set(p2n, {n})  # n is the only common node allowed
+        # logging.debug("Node %r: %d possible divergent pbs sets of size %d" % (n, len(res), n_pb))
+        if res:
+            topo.node[n]['probe'] = res[0]['member']
+            res[0]['attr'].remove(n)
+            topo.node[n]['effective_neighbour'] = list(res[0]['attr'])
+            for pb in topo.node[n]['probe']:
+                pb2nodes[pb].append(n)
+    t4 = time.time()
+    logging.debug("Topo data preparation in %.2f sec" % (t4-t3))
+
+    # calculate the change sum per bin per link, per node
+    # incrementally update the entire, file by file
     for f in files:
-        tg.change_binsum(f, CH_MTD, topo, pb2links, BIN, begin, stop)
+        tg.change_binsum(f, CH_MTD, topo, pb2links, pb2nodes, BIN, begin, stop)
 
     # normalize the change count per bin per link by the probe numbers per link
     t3 = time.time()
@@ -120,11 +140,18 @@ def main():
                 topo[l[0]][l[1]]['score'][t] /= float(pb_count)
         except ZeroDivisionError:
             logging.error("%r has no probe." % topo[l[0]][l[1]])
+
+    for n in topo.nodes_iter():
+        pb_count = len(topo.node[n]['probe'])
+        if pb_count:
+            for t in topo.node[n]['score']:
+                topo.node[n]['score'][t] /= float(pb_count)
     t4 = time.time()
     logging.debug("Normalize change index in %.2f sec" % (t4-t3))
 
     # perform change location inference
-    tg.change_inference(topo, LINK_THRESHOLD, NODE_THRESHOLD, BIN, begin, stop)
+    tg.change_inference_node(topo, NODE_THRESHOLD, BIN, begin, stop)
+    tg.change_inference_link(topo, LINK_THRESHOLD, BIN, begin, stop)
 
     # formatting congestion and inference filed for js plot
     t3 = time.time()

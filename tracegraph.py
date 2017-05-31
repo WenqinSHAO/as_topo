@@ -131,21 +131,22 @@ def compose_all_modify(graphs):
     return C
 
 
-def change_binsum(fn, method, g, pb2links, bin_size, begin, stop):
-    """calculate binned sum of RTT changes for each link in a given topo
+def change_binsum(fn, method, g, pb2links, pb2nodes, bin_size, begin, stop):
+    """calculate binned sum of RTT changes for each link and node in a given topo
 
     Args:
         fn (string): path to the RTT file
         method (string): field in the file to be extracted as the result of change detection
         g (nx.Graph): network topology learnt from traceroute; link is annotated with probes traverse it
         pb2links (dict): {probe id : [link in g (n1, n2),...]}
+        pb2nodes (dict): {probe id: [nodes in g...]}
         bin_size (int): the size of bin in seconds
         begin (int): sec since epoch from which records in fn is considered
         stop (int): sec since epoch till which records in fn is considered
 
     Notes:
         no return will be provided. update is directly applied to g.
-        g has to be initialized for each of its link a dictionary "score", default to int type.
+        g has to be initialized for each of its link and node a dictionary "score", default to int type.
     """
     t1 = time.time()
 
@@ -165,17 +166,43 @@ def change_binsum(fn, method, g, pb2links, bin_size, begin, stop):
                         t = (t // bin_size) * bin_size
                         for l in pb2links.get(pb, []):
                             g[l[0]][l[1]]['score'][t] += v
+                        for n in pb2nodes.get(pb, []):
+                            g.node[n]['score'][t] += v
     t2 = time.time()
     logging.debug("%s handled in %.2f sec" % (fn, t2 - t1))
 
 
-def change_inference(g, link_threshold, node_threshold, bin_size, begin, stop):
-    """perform change location inference
+def change_inference_node(g, node_threshold, bin_size, begin, stop):
+    """perform node change location inference
+
+    Args:
+        g (nx.Graph): network topology learnt from traceroute; link is annotated with probes traverse it
+        node_threshold (float): parameter for node inference; minimum portion of trace traversing that node experience change
+        bin_size (int): the size of bin in seconds
+        begin (int): sec since epoch from which records in fn is considered
+        stop (int): sec since epoch till which records in fn is considered
+
+    Notes:
+        no return will be provided. update is directly applied to g.
+        g has to be initialized for each of its node a dictionary "inference", default to int type.
+        2 (SURE) for inferred (pretty sure) as cause
+        1 (LIKELY) for susceptible (not so sure) as cause
+    """
+    t1 = time.time()
+    for t in range((begin // bin_size) * bin_size, ((stop // bin_size) + 1) * bin_size, bin_size):
+        for n in g.nodes_iter():
+            if len(g.node[n]['probe']) > 1 and g.node[n]['score'][t] > node_threshold:
+                g.node[n]['inference'][t] = SURE
+    t2 = time.time()
+    logging.debug("Node congestion inference in %.2f sec" % (t2 - t1))
+
+
+def change_inference_link(g, link_threshold, bin_size, begin, stop):
+    """perform link change location inference
 
     Args:
         g (nx.Graph): network topology learnt from traceroute; link is annotated with probes traverse it
         link_threshold (float): parameter for link inference; minimum portion of trace on that link experience change
-        node_threshold (float): parameter for node inference; portion of links around a node experience change
         bin_size (int): the size of bin in seconds
         begin (int): sec since epoch from which records in fn is considered
         stop (int): sec since epoch till which records in fn is considered
@@ -190,29 +217,29 @@ def change_inference(g, link_threshold, node_threshold, bin_size, begin, stop):
 
     for t in range((begin // bin_size) * bin_size, ((stop // bin_size) + 1) * bin_size, bin_size):
         for l in g.edges_iter():
-            if g[l[0]][l[1]]['score'][t] >= link_threshold:
+            if g[l[0]][l[1]]['score'][t] > link_threshold:
 
                 branches = find_branches(g, l[0], l[1])
                 ext = {k: [i for i in v if i[-1] > 0] for k, v in branches.items()}
-                sib = {k: [i for i in v if i[-1] == 0] for k, v in branches.items()}
+                # sib = {k: [i for i in v if i[-1] == 0] for k, v in branches.items()}
 
                 ext_con_count_abs = {
-                    k: sum([1 if g[i[0]][k]['score'][t] >= link_threshold else 0 for i in v]) for
+                    k: sum([1 if g[i[0]][k]['score'][t] > link_threshold else 0 for i in v]) for
                     k, v in ext.items()}
                 ext_con_count_prop = {
-                    k: sum([1 if g[i[0]][k]['score'][t] >= float(i[2])/i[1] * link_threshold else 0 for i in v]) for
+                    k: sum([1 if g[i[0]][k]['score'][t] > float(i[2])/i[1] * link_threshold else 0 for i in v]) for
                     k, v in ext.items()}
-                sib_con_count = {
-                    k: sum([1 if g[i[0]][k]['score'][t] >= link_threshold else 0 for i in v]) for
-                    k, v in sib.items()}
+                #sib_con_count = {
+                #    k: sum([1 if g[i[0]][k]['score'][t] > link_threshold else 0 for i in v]) for
+                #    k, v in sib.items()}
 
                 # if the nodes of l being the cause
-                for n in l:
-                    if sib_con_count[n] > 0 and sib_con_count[n] >= len(sib[n]) * node_threshold:
-                        g.node[n]['inference'][t] = max(g.node[n]['inference'][t], SURE)
-                    elif sib_con_count[n] > 0 or \
-                            (ext_con_count_abs[n] > 1 and ext_con_count_abs[n] >= len(ext[n]) * node_threshold):
-                        g.node[n]['inference'][t] = max(g.node[n]['inference'][t], LIKELY)
+                #for n in l:
+                #    if sib_con_count[n] > 0 and sib_con_count[n] >= len(sib[n]) * node_threshold:
+                #        g.node[n]['inference'][t] = max(g.node[n]['inference'][t], SURE)
+                #    elif sib_con_count[n] > 0 or \
+                #            (ext_con_count_abs[n] > 1 and ext_con_count_abs[n] >= len(ext[n]) * node_threshold):
+                #        g.node[n]['inference'][t] = max(g.node[n]['inference'][t], LIKELY)
 
                 # if the l as the link being the cause
                 # 1/ l has multiple extension branches at both sides
@@ -262,7 +289,7 @@ def change_inference(g, link_threshold, node_threshold, bin_size, begin, stop):
                     g[l[0]][l[1]]['inference'][t] = SURE
 
     t2 = time.time()
-    logging.debug("Congestion inference in %.2f sec" % (t2 - t1))
+    logging.debug("Link congestion inference in %.2f sec" % (t2 - t1))
 
 
 def find_branches(graph, n1, n2):
@@ -278,7 +305,7 @@ def find_branches(graph, n1, n2):
     try:
         pbs = set(graph.edge[n1][n2]['probe'])
     except KeyError:
-        return {}
+        return {n1: [], n2: []}
     res = {n1: [], n2: []}
     for tup in [(n1, n2), (n2, n1)]:
         n, other = tup
@@ -288,5 +315,50 @@ def find_branches(graph, n1, n2):
                 common = n_pbs & pbs
                 res[n].append((neighbour, len(n_pbs), len(common)))
     return res
+
+
+def divergent_set(l, crosspoints):
+    """ find largest subsets of l so that only common part among any elements in the subset is those in the crosspoints
+
+    Args:
+        l (dict): {element: set(attributes),...}
+        crosspoints (set): set of attributes allowed for being in common
+
+    Return:
+        tuple (the size of subset, {'member':[keys of l], 'attr': union of member attributes})
+    """
+
+    def ok(o, target):
+        """test if intersection between o and target is equal to crosspoints"""
+        if set.intersection(target, o) == set(crosspoints):
+            return True
+        else:
+            return False
+
+    # source https://stackoverflow.com/questions/10823227/how-to-get-all-the-maximums-max-function
+    def maxes(a, key=None):
+        """return all the i with the maximum of key(i) for i in a"""
+        if key is None:
+            key = lambda x: x
+        m, max_list = key(a[0]), []
+        for s in a:
+            k = key(s)
+            if k > m:
+                m, max_list = k, [s]
+            elif k == m:
+                max_list.append(s)
+        return m, max_list
+
+    candidate = []
+
+    for e in l:
+        for c in candidate:
+            if ok(l[e], c['attr']):
+                c['member'].append(e)
+                c['attr'] |= l[e]
+        candidate.append({"member": [e], "attr": set(l[e])})
+
+    return maxes(candidate, key=lambda a: len(a['member']))
+
 
 
