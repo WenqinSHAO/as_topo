@@ -227,6 +227,10 @@ def change_inference_link(graph, link_threshold, bin_size, begin, stop):
             call_depth.pop()
             return g[l[0]][l[1]]['inference'][t]
 
+        # a safe for case 3
+        if g[l[0]][l[1]]["score"][t] <= link_threshold:
+            return NEG
+
         branches = find_branches(g, l[0], l[1])
         ext = {k: [i for i in v if i[-1] > 0] for k, v in branches.items()}
         ext_con_count_abs = {
