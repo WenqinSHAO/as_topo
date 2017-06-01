@@ -31,6 +31,7 @@ var tparser = d3.utcParse("%Y-%m-%d %H:%M");
 var tformatter = d3.utcFormat("%Y-%m-%d %H:%M");
 
 var opened_f, loaded_data, moment, is_congestion_graph, show_inference_result, bin_size, begin, end;
+var link_threshold = 0.5;
 
 function plot() {
     var file = document.getElementById("file_input");
@@ -346,8 +347,8 @@ function linkOpacity(d) {
     } else {
         if (is_congestion_graph) {
             var level = d3.select(this).attr("congestion_level");
-            if (level && level >.1) {
-                return level;
+            if (level && level > link_threshold) {
+                return .7;
             } else {
                 return .1;
             }
