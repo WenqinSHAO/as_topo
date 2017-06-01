@@ -4,6 +4,7 @@ from collections import defaultdict
 import time
 import json
 import logging
+import timetools as tt
 
 _attrs = dict(id='id', source='source', target='target', key='key', name='name', src_name='src_name', tgt_name='tgt_name')
 
@@ -229,6 +230,7 @@ def change_inference_link(g, link_threshold, bin_size, begin, stop):
                 ext_con_count_prop = {
                     k: sum([1 if g[i[0]][k]['score'][t] > float(i[2])/i[1] * link_threshold else 0 for i in v]) for
                     k, v in ext.items()}
+
                 #sib_con_count = {
                 #    k: sum([1 if g[i[0]][k]['score'][t] > link_threshold else 0 for i in v]) for
                 #    k, v in sib.items()}
@@ -265,6 +267,9 @@ def change_inference_link(g, link_threshold, bin_size, begin, stop):
                     else:
                         if ext[l[0]][0][1] == ext[l[0]][0][2] or ext[l[1]][0][1] == ext[l[1]][0][2]:
                             g[l[0]][l[1]]['inference'][t] = LIKELY
+                # 5/ both side has no extension branch, i.e standalone link
+                elif len(ext[l[1]]) == 0 and len(ext[l[0]]) == 0:
+                    g[l[0]][l[1]]['inference'][t] = SURE
                 # 4/ one side has no extension branch
                 elif len(ext[l[0]]) == 0:
                     if ext_con_count_prop[l[1]] > 1:
@@ -284,9 +289,6 @@ def change_inference_link(g, link_threshold, bin_size, begin, stop):
                         else:
                             if ext[l[0]][0][1] == ext[l[0]][0][2]:
                                 g[l[0]][l[1]]['inference'][t] = LIKELY
-                # 5/ both side has no extension branch, i.e standalone link
-                elif len(ext[l[1]]) == 0 and len(ext[l[0]]) == 0:
-                    g[l[0]][l[1]]['inference'][t] = SURE
 
     t2 = time.time()
     logging.debug("Link congestion inference in %.2f sec" % (t2 - t1))
