@@ -303,7 +303,9 @@ def change_inference_link(graph, link_threshold, bin_size, begin, stop):
                     trunk_l0 = (l[0], ext[l[0]][0][0])
                     trunk_l1 = (l[1], ext[l[1]][0][0])
                     logging.debug(
-                        "Dependence chain: %s, %r -> (%r, %r)" % (tt.epoch_to_string(t), l, trunk_l0, trunk_l1))
+                        "Dependence chain: %s, %r -> (%r, %r) \n%r\n%r\n%r" %
+                        (tt.epoch_to_string(t), l, trunk_l0, trunk_l1,
+                         g[l[0]][l[1]]['probe'], g[trunk_l0[0]][trunk_l0[1]]['probe'], g[trunk_l1[0]][trunk_l1[1]]['probe']))
                     trunk_l0_res = helper(g, trunk_l0, t)
                     trunk_l1_res = helper(g, trunk_l1, t)
                     if trunk_l0_res == NEG and trunk_l1_res == NEG:
