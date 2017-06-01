@@ -100,7 +100,7 @@ def main():
     # initialize the congestion and inference field for each link and node
     for l in topo.edges_iter():
         topo[l[0]][l[1]]['score'] = defaultdict(int)
-        topo[l[0]][l[1]]['inference'] = defaultdict(int)
+        topo[l[0]][l[1]]['inference'] = dict()
         for pb in topo[l[0]][l[1]]['probe']:
             pb2links[pb].append(l)
 
@@ -109,7 +109,7 @@ def main():
     # learn this probe set for each node and form a probe to node dict
     for n in topo.nodes_iter():
         topo.node[n]['score'] = defaultdict(int)
-        topo.node[n]['inference'] = defaultdict(int)
+        topo.node[n]['inference'] = dict()
 
         p2n = defaultdict(lambda: {n})  # all the nodes traversed by probes on surrounding links
         for neighbour in topo.neighbors(n):
@@ -159,10 +159,12 @@ def main():
         topo[l[0]][l[1]]['score'] = [{"epoch": i[0], "value": round(i[1], 3)}
                                      for i in sorted(topo[l[0]][l[1]]['score'].items(), key=lambda s: s[0])]
         topo[l[0]][l[1]]['inference'] = [{"epoch": i[0], "value": i[1]}
-                                         for i in sorted(topo[l[0]][l[1]]['inference'].items(), key=lambda s: s[0])]
+                                         for i in sorted(topo[l[0]][l[1]]['inference'].items(), key=lambda s: s[0])
+                                         if i[1] != tg.NEG]
     for n in topo.nodes_iter():
         topo.node[n]['inference'] = [{"epoch": i[0], "value": i[1]}
-                                     for i in sorted(topo.node[n]['inference'].items(), key=lambda s: s[0])]
+                                     for i in sorted(topo.node[n]['inference'].items(), key=lambda s: s[0])
+                                     if i[1] != tg.NEG]
     t4 = time.time()
     logging.debug("Change index and inference formatting in %.2f sec" % (t4 - t3))
 
