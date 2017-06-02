@@ -254,15 +254,31 @@ def change_inference_link(graph, link_threshold, bin_size, begin, stop):
 
         # 1/ l has multiple extension branches at both sides
         if ext_con_count_prop[l[0]] > 1 and ext_con_count_prop[l[1]] > 1:
-            g[l[0]][l[1]]['inference'][t] = SURE
+            pb_hash = defaultdict(set)
+            for n in l:
+                for ext_n, a, b in ext[n]:
+                    if g[n][ext_n]['score'][t] > float(b)/a * link_threshold:
+                        pb_hash[n].add(hash(frozenset(set(g[n][ext_n]["probe"]) & set(g[l[0]][l[1]]["probe"]))))
+            if all([len(i[1]) > 1 for i in pb_hash.items()]):
+                g[l[0]][l[1]]['inference'][t] = SURE
+
+            else:
+                g[l[0]][l[1]]['inference'][t] = LIKELY
             call_depth.pop()
-            return SURE
+            return g[l[0]][l[1]]['inference'][t]
         # 2/ only one extension branch at the one side
         elif len(ext[l[0]]) == 1 and ext_con_count_prop[l[1]] > 1:
             if ext_con_count_abs[l[0]] < 1:  # the extension branch not being the cause
-                g[l[0]][l[1]]['inference'][t] = SURE
+                pb_hash = set()
+                for ext_n, a, b in ext[l[1]]:
+                    if g[l[1]][ext_n]['score'][t] > float(b)/a * link_threshold:
+                        pb_hash.add(hash(frozenset(set(g[l[1]][ext_n]["probe"]) & set(g[l[0]][l[1]]["probe"]))))
+                if len(pb_hash) > 1:
+                    g[l[0]][l[1]]['inference'][t] = SURE
+                else:
+                    g[l[0]][l[1]]['inference'][t] = LIKELY
                 call_depth.pop()
-                return SURE
+                return g[l[0]][l[1]]['inference'][t]
             else:
                 trunk = (l[0], ext[l[0]][0][0])  # the only extension branch on l[0]
                 if from_link and (trunk == from_link or trunk == from_link[::-1]):
@@ -271,25 +287,31 @@ def change_inference_link(graph, link_threshold, bin_size, begin, stop):
                     call_depth.pop()
                     return LIKELY
                 else:
+                    # TODO: think again the logic here
                     logging.debug("Dependence chain: %s, %r -> %r" % (tt.epoch_to_string(t), l, trunk))
                     trunk_res = helper(g, trunk, t, l)
-                    if trunk_res == NEG:
-                        g[l[0]][l[1]]['inference'][t] = SURE
-                        call_depth.pop()
-                        return SURE
-                    elif trunk_res == LIKELY:
-                        g[l[0]][l[1]]['inference'][t] = LIKELY
-                        call_depth.pop()
-                        return LIKELY
-                    else:
+                    # if the trunk_res == neg
+                    # 1/ possible that l cause the change
+                    # 2/ possible that upstream of trunk causes a change,
+                    # and that change could be irrelevant to change on l
+                    if trunk_res == SURE:
                         g[l[0]][l[1]]['inference'][t] = NEG
-                        call_depth.pop()
-                        return NEG
+                    else:
+                        g[l[0]][l[1]]['inference'][t] = LIKELY
+                    call_depth.pop()
+                    return g[l[0]][l[1]]['inference'][t]
         elif len(ext[l[1]]) == 1 and ext_con_count_prop[l[0]] > 1:
             if ext_con_count_abs[l[1]] < 1:  # the extension branch not being the cause
-                g[l[0]][l[1]]['inference'][t] = SURE
+                pb_hash = set()
+                for ext_n, a, b in ext[l[0]]:
+                    if g[l[0]][ext_n]['score'][t] > float(b) / a * link_threshold:
+                        pb_hash.add(hash(frozenset(set(g[l[0]][ext_n]["probe"]) & set(g[l[0]][l[1]]["probe"]))))
+                if len(pb_hash) > 1:
+                    g[l[0]][l[1]]['inference'][t] = SURE
+                else:
+                    g[l[0]][l[1]]['inference'][t] = LIKELY
                 call_depth.pop()
-                return SURE
+                return g[l[0]][l[1]]['inference'][t]
             else:
                 trunk = (l[1], ext[l[1]][0][0])  # the only extension branch on l[0]
                 if from_link and (trunk == from_link or trunk == from_link[::-1]):
@@ -300,18 +322,12 @@ def change_inference_link(graph, link_threshold, bin_size, begin, stop):
                 else:
                     logging.debug("Dependence chain: %s, %r -> %r" % (tt.epoch_to_string(t), l, trunk))
                     trunk_res = helper(g, trunk, t, l)
-                    if trunk_res == NEG:
-                        g[l[0]][l[1]]['inference'][t] = SURE
-                        call_depth.pop()
-                        return SURE
-                    elif trunk_res == LIKELY:
-                        g[l[0]][l[1]]['inference'][t] = LIKELY
-                        call_depth.pop()
-                        return LIKELY
-                    else:
+                    if trunk_res == SURE:
                         g[l[0]][l[1]]['inference'][t] = NEG
-                        call_depth.pop()
-                        return NEG
+                    else:
+                        g[l[0]][l[1]]['inference'][t] = LIKELY
+                    call_depth.pop()
+                    return g[l[0]][l[1]]['inference'][t]
         # 3/ both sides have only only one extension branch
         elif len(ext[l[0]]) == 1 and len(ext[l[1]]) == 1:
             if ext_con_count_abs[l[0]] < 1 and ext_con_count_abs[l[1]] < 1:
@@ -324,14 +340,25 @@ def change_inference_link(graph, link_threshold, bin_size, begin, stop):
 
                 if from_link and (trunk_l0 == from_link or trunk_l0 == from_link[::-1]):
                     logging.debug("Dependence loop: %s, %r <-> %r" % (tt.epoch_to_string(t), l, trunk_l0))
-                    g[l[0]][l[1]]['inference'][t] = LIKELY
+                    # it now depends on the result of trunk_l1 which must be different from l
+                    trunk_l1_res = helper(g, trunk_l1, t, l)
+                    if trunk_l1_res == SURE:
+                        g[l[0]][l[1]]['inference'][t] = NEG
+                    else:
+                        g[l[0]][l[1]]['inference'][t] = LIKELY
+
                     call_depth.pop()
-                    return LIKELY
+                    return g[l[0]][l[1]]['inference'][t]
                 elif from_link and (trunk_l1 == from_link or trunk_l1 == from_link[::-1]):
                     logging.debug("Dependence loop: %s, %r <-> %r" % (tt.epoch_to_string(t), l, trunk_l1))
-                    g[l[0]][l[1]]['inference'][t] = LIKELY
+                    # it now depends on the result of trunk_l0 which must be different from l
+                    trunk_l0_res = helper(g, trunk_l0, t, l)
+                    if trunk_l0_res == SURE:
+                        g[l[0]][l[1]]['inference'][t] = NEG
+                    else:
+                        g[l[0]][l[1]]['inference'][t] = LIKELY
                     call_depth.pop()
-                    return LIKELY
+                    return g[l[0]][l[1]]['inference'][t]
                 else:
                     logging.debug("Dependence chain: %s, %r -> (%r, %r) \n%r\n%r\n%r" %
                                   (tt.epoch_to_string(t), l, trunk_l0, trunk_l1,
@@ -355,9 +382,16 @@ def change_inference_link(graph, link_threshold, bin_size, begin, stop):
         # 4/ one side has no extension branch
         elif len(ext[l[0]]) == 0:
             if ext_con_count_prop[l[1]] > 1:
-                g[l[0]][l[1]]['inference'][t] = SURE
+                pb_hash = set()
+                for ext_n, a, b in ext[l[1]]:
+                    if g[l[1]][ext_n]['score'][t] > float(b) / a * link_threshold:
+                        pb_hash.add(hash(frozenset(set(g[l[1]][ext_n]["probe"]) & set(g[l[0]][l[1]]["probe"]))))
+                if len(pb_hash) > 1:
+                    g[l[0]][l[1]]['inference'][t] = SURE
+                else:
+                    g[l[0]][l[1]]['inference'][t] = LIKELY
                 call_depth.pop()
-                return SURE
+                return g[l[0]][l[1]]['inference'][t]
             elif len(ext[l[1]]) == 1:
                 if ext_con_count_abs[l[1]] < 1:
                     g[l[0]][l[1]]['inference'][t] = SURE
@@ -373,23 +407,24 @@ def change_inference_link(graph, link_threshold, bin_size, begin, stop):
                     else:
                         logging.debug("Dependence chain: %s, %r -> %r" % (tt.epoch_to_string(t), l, trunk))
                         trunk_res = helper(g, trunk, t, l)
-                        if trunk_res == NEG:
-                            g[l[0]][l[1]]['inference'][t] = SURE
-                            call_depth.pop()
-                            return SURE
-                        elif trunk_res == LIKELY:
-                            g[l[0]][l[1]]['inference'][t] = LIKELY
-                            call_depth.pop()
-                            return LIKELY
-                        else:
+                        if trunk_res == SURE:
                             g[l[0]][l[1]]['inference'][t] = NEG
-                            call_depth.pop()
-                            return NEG
+                        else:
+                            g[l[0]][l[1]]['inference'][t] = LIKELY
+                        call_depth.pop()
+                        return g[l[0]][l[1]]['inference'][t]
         elif len(ext[l[1]]) == 0:
             if ext_con_count_prop[l[0]] > 1:
-                g[l[0]][l[1]]['inference'][t] = SURE
+                pb_hash = set()
+                for ext_n, a, b in ext[l[0]]:
+                    if g[l[0]][ext_n]['score'][t] > float(b) / a * link_threshold:
+                        pb_hash.add(hash(frozenset(set(g[l[0]][ext_n]["probe"]) & set(g[l[0]][l[1]]["probe"]))))
+                if len(pb_hash) > 1:
+                    g[l[0]][l[1]]['inference'][t] = SURE
+                else:
+                    g[l[0]][l[1]]['inference'][t] = LIKELY
                 call_depth.pop()
-                return SURE
+                return g[l[0]][l[1]]['inference'][t]
             elif len(ext[l[0]]) == 1:
                 if ext_con_count_abs[l[0]] < 1:
                     g[l[0]][l[1]]['inference'][t] = SURE
@@ -405,18 +440,12 @@ def change_inference_link(graph, link_threshold, bin_size, begin, stop):
                     else:
                         logging.debug("Dependence chain: %s, %r -> %r" % (tt.epoch_to_string(t), l, trunk))
                         trunk_res = helper(g, trunk, t, l)
-                        if trunk_res == NEG:
-                            g[l[0]][l[1]]['inference'][t] = SURE
-                            call_depth.pop()
-                            return SURE
-                        elif trunk_res == LIKELY:
-                            g[l[0]][l[1]]['inference'][t] = LIKELY
-                            call_depth.pop()
-                            return LIKELY
-                        else:
+                        if trunk_res == SURE:
                             g[l[0]][l[1]]['inference'][t] = NEG
-                            call_depth.pop()
-                            return NEG
+                        else:
+                            g[l[0]][l[1]]['inference'][t] = LIKELY
+                        call_depth.pop()
+                        return g[l[0]][l[1]]['inference'][t]
         else:
             g[l[0]][l[1]]['inference'][t] = NEG
             call_depth.pop()
