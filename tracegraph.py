@@ -217,7 +217,7 @@ def change_inference_link(graph, link_threshold, bin_size, begin, stop):
 
     call_depth = []
 
-    def helper(g, l, t):
+    def helper(g, l, t, from_link=None):
 
         call_depth.append(0)
         if len(call_depth) > 2:
@@ -227,8 +227,19 @@ def change_inference_link(graph, link_threshold, bin_size, begin, stop):
             call_depth.pop()
             return g[l[0]][l[1]]['inference'][t]
 
-        # a safe for case 3
+        # a safe check
         if g[l[0]][l[1]]["score"][t] <= link_threshold:
+            call_depth.pop()
+            return NEG
+
+        # if connecting nodes are the cause, then link can be the cause according to single cause assumption
+        l0_res = g.node[l[0]]["inference"].get(t, NEG)
+        l1_res = g.node[l[1]]["inference"].get(t, NEG)
+        caused_by_node = bool(l0_res == SURE or l1_res == SURE)
+
+        if caused_by_node:
+            g[l[0]][l[1]]['inference'][t] = NEG
+            call_depth.pop()
             return NEG
 
         branches = find_branches(g, l[0], l[1])
@@ -248,78 +259,94 @@ def change_inference_link(graph, link_threshold, bin_size, begin, stop):
             return SURE
         # 2/ only one extension branch at the one side
         elif len(ext[l[0]]) == 1 and ext_con_count_prop[l[1]] > 1:
-            # if the trunk that is ext[l[0]][0] is not responsible for change, then current link must be
-            if ext[l[0]][0][1] == ext[l[0]][0][2]:
-                g[l[0]][l[1]]['inference'][t] = LIKELY
+            if ext_con_count_abs[l[0]] < 1:  # the extension branch not being the cause
+                g[l[0]][l[1]]['inference'][t] = SURE
                 call_depth.pop()
-                return LIKELY
-            else:  # ext[l[0]][0][1] > ext[l[0]][0][2]:
-                if ext_con_count_abs[l[0]] < 1:
-                    g[l[0]][l[1]]['inference'][t] = SURE
+                return SURE
+            else:
+                trunk = (l[0], ext[l[0]][0][0])  # the only extension branch on l[0]
+                if from_link and (trunk == from_link or trunk == from_link[::-1]):
+                    logging.debug("Dependence loop: %s, %r <-> %r" % (tt.epoch_to_string(t), l, trunk))
+                    g[l[0]][l[1]]['inference'][t] = LIKELY
                     call_depth.pop()
-                    return SURE
+                    return LIKELY
                 else:
-                    trunk = (l[0], ext[l[0]][0][0])  # the only extension branch on l[0]
                     logging.debug("Dependence chain: %s, %r -> %r" % (tt.epoch_to_string(t), l, trunk))
-                    trunk_res = helper(g, trunk, t)
+                    trunk_res = helper(g, trunk, t, l)
                     if trunk_res == NEG:
                         g[l[0]][l[1]]['inference'][t] = SURE
                         call_depth.pop()
                         return SURE
+                    elif trunk_res == LIKELY:
+                        g[l[0]][l[1]]['inference'][t] = LIKELY
+                        call_depth.pop()
+                        return LIKELY
                     else:
                         g[l[0]][l[1]]['inference'][t] = NEG
                         call_depth.pop()
                         return NEG
         elif len(ext[l[1]]) == 1 and ext_con_count_prop[l[0]] > 1:
-            if ext[l[1]][0][1] == ext[l[1]][0][2]:
-                g[l[0]][l[1]]['inference'][t] = LIKELY
+            if ext_con_count_abs[l[1]] < 1:  # the extension branch not being the cause
+                g[l[0]][l[1]]['inference'][t] = SURE
                 call_depth.pop()
-                return LIKELY
-            else:  # ext[l[1]][0][1] > ext[l[1]][0][2]:
-                if ext_con_count_abs[l[1]] < 1:
-                    g[l[0]][l[1]]['inference'][t] = SURE
+                return SURE
+            else:
+                trunk = (l[1], ext[l[1]][0][0])  # the only extension branch on l[0]
+                if from_link and (trunk == from_link or trunk == from_link[::-1]):
+                    logging.debug("Dependence loop: %s, %r <-> %r" % (tt.epoch_to_string(t), l, trunk))
+                    g[l[0]][l[1]]['inference'][t] = LIKELY
                     call_depth.pop()
-                    return SURE
+                    return LIKELY
                 else:
-                    trunk = (l[1], ext[l[1]][0][0])  # the only extension branch on l[0]
                     logging.debug("Dependence chain: %s, %r -> %r" % (tt.epoch_to_string(t), l, trunk))
-                    trunk_res = helper(g, trunk, t)
+                    trunk_res = helper(g, trunk, t, l)
                     if trunk_res == NEG:
                         g[l[0]][l[1]]['inference'][t] = SURE
                         call_depth.pop()
                         return SURE
+                    elif trunk_res == LIKELY:
+                        g[l[0]][l[1]]['inference'][t] = LIKELY
+                        call_depth.pop()
+                        return LIKELY
                     else:
                         g[l[0]][l[1]]['inference'][t] = NEG
                         call_depth.pop()
                         return NEG
         # 3/ both sides have only only one extension branch
         elif len(ext[l[0]]) == 1 and len(ext[l[1]]) == 1:
-            if ext[l[0]][0][1] == ext[l[0]][0][2] or ext[l[1]][0][1] == ext[l[1]][0][2]:
-                g[l[0]][l[1]]['inference'][t] = LIKELY
+            if ext_con_count_abs[l[0]] < 1 and ext_con_count_abs[l[1]] < 1:
+                g[l[0]][l[1]]['inference'][t] = SURE
                 call_depth.pop()
-                return LIKELY
-            else:  # both extension branches contains more probes than the current one
-                if ext_con_count_abs[l[0]] < 1 and ext_con_count_abs[l[1]] < 1:
-                    g[l[0]][l[1]]['inference'][t] = SURE
+                return SURE
+            else:
+                trunk_l0 = (l[0], ext[l[0]][0][0])
+                trunk_l1 = (l[1], ext[l[1]][0][0])
+
+                if from_link and (trunk_l0 == from_link or trunk_l0 == from_link[::-1]):
+                    logging.debug("Dependence loop: %s, %r <-> %r" % (tt.epoch_to_string(t), l, trunk_l0))
+                    g[l[0]][l[1]]['inference'][t] = LIKELY
                     call_depth.pop()
-                    return SURE
+                    return LIKELY
+                elif from_link and (trunk_l1 == from_link or trunk_l1 == from_link[::-1]):
+                    logging.debug("Dependence loop: %s, %r <-> %r" % (tt.epoch_to_string(t), l, trunk_l1))
+                    g[l[0]][l[1]]['inference'][t] = LIKELY
+                    call_depth.pop()
+                    return LIKELY
                 else:
-                    trunk_l0 = (l[0], ext[l[0]][0][0])
-                    trunk_l1 = (l[1], ext[l[1]][0][0])
-                    logging.debug(
-                        "Dependence chain: %s, %r -> (%r, %r) \n%r\n%r\n%r" %
-                        (tt.epoch_to_string(t), l, trunk_l0, trunk_l1,
-                         g[l[0]][l[1]]['probe'], g[trunk_l0[0]][trunk_l0[1]]['probe'], g[trunk_l1[0]][trunk_l1[1]]['probe']))
-                    trunk_l0_res = helper(g, trunk_l0, t)
-                    trunk_l1_res = helper(g, trunk_l1, t)
-                    if trunk_l0_res == NEG and trunk_l1_res == NEG:
-                        g[l[0]][l[1]]['inference'][t] = SURE
-                        call_depth.pop()
-                        return SURE
-                    else:
+                    logging.debug("Dependence chain: %s, %r -> (%r, %r) \n%r\n%r\n%r" %
+                                  (tt.epoch_to_string(t), l, trunk_l0, trunk_l1,
+                                   g[l[0]][l[1]]['probe'],
+                                   g[trunk_l0[0]][trunk_l0[1]]['probe'], g[trunk_l1[0]][trunk_l1[1]]['probe']))
+                    trunk_l0_res = helper(g, trunk_l0, t, l)
+                    trunk_l1_res = helper(g, trunk_l1, t, l)
+                    if trunk_l1_res == SURE or trunk_l0_res == SURE:
                         g[l[0]][l[1]]['inference'][t] = NEG
-                        call_depth.pop()
-                        return NEG
+                    elif trunk_l0_res == LIKELY or trunk_l1_res == LIKELY:
+                        g[l[0]][l[1]]['inference'][t] = LIKELY
+                    else:
+                        g[l[0]][l[1]]['inference'][t] = SURE
+                    call_depth.pop()
+                    return g[l[0]][l[1]]['inference'][t]
         # 5/ both side has no extension branch, i.e standalone link
         elif len(ext[l[1]]) == 0 and len(ext[l[0]]) == 0:
             g[l[0]][l[1]]['inference'][t] = SURE
@@ -332,23 +359,28 @@ def change_inference_link(graph, link_threshold, bin_size, begin, stop):
                 call_depth.pop()
                 return SURE
             elif len(ext[l[1]]) == 1:
-                if ext[l[1]][0][1] == ext[l[1]][0][2]:
-                    g[l[0]][l[1]]['inference'][t] = LIKELY
+                if ext_con_count_abs[l[1]] < 1:
+                    g[l[0]][l[1]]['inference'][t] = SURE
                     call_depth.pop()
-                    return LIKELY
-                else:  # ext[l[1]][0][1] > ext[l[1]][0][2]:
-                    if ext_con_count_abs[l[1]] < 1:
-                        g[l[0]][l[1]]['inference'][t] = SURE
+                    return SURE
+                else:
+                    trunk = (l[1], ext[l[1]][0][0])  # the only extension branch on l[1]
+                    if from_link and (trunk == from_link or trunk == from_link[::-1]):
+                        logging.debug("Dependence loop: %s, %r <-> %r" % (tt.epoch_to_string(t), l, trunk))
+                        g[l[0]][l[1]]['inference'][t] = LIKELY
                         call_depth.pop()
-                        return SURE
+                        return LIKELY
                     else:
-                        trunk = (l[1], ext[l[1]][0][0])  # the only extension branch on l[1]
                         logging.debug("Dependence chain: %s, %r -> %r" % (tt.epoch_to_string(t), l, trunk))
-                        trunk_res = helper(g, trunk, t)
+                        trunk_res = helper(g, trunk, t, l)
                         if trunk_res == NEG:
                             g[l[0]][l[1]]['inference'][t] = SURE
                             call_depth.pop()
                             return SURE
+                        elif trunk_res == LIKELY:
+                            g[l[0]][l[1]]['inference'][t] = LIKELY
+                            call_depth.pop()
+                            return LIKELY
                         else:
                             g[l[0]][l[1]]['inference'][t] = NEG
                             call_depth.pop()
@@ -359,23 +391,28 @@ def change_inference_link(graph, link_threshold, bin_size, begin, stop):
                 call_depth.pop()
                 return SURE
             elif len(ext[l[0]]) == 1:
-                if ext[l[0]][0][1] == ext[l[0]][0][2]:
-                    g[l[0]][l[1]]['inference'][t] = LIKELY
+                if ext_con_count_abs[l[0]] < 1:
+                    g[l[0]][l[1]]['inference'][t] = SURE
                     call_depth.pop()
-                    return LIKELY
-                else:  # ext[l[0]][0][1] > ext[l[0]][0][2]:
-                    if ext_con_count_abs[l[0]] < 1:
-                        g[l[0]][l[1]]['inference'][t] = SURE
+                    return SURE
+                else:
+                    trunk = (l[0], ext[l[0]][0][0])  # the only extension branch on l[1]
+                    if from_link and (trunk == from_link or trunk == from_link[::-1]):
+                        logging.debug("Dependence loop: %s, %r <-> %r" % (tt.epoch_to_string(t), l, trunk))
+                        g[l[0]][l[1]]['inference'][t] = LIKELY
                         call_depth.pop()
-                        return SURE
+                        return LIKELY
                     else:
-                        trunk = (l[0], ext[l[0]][0][0])  # the only extension branch on l[1]
                         logging.debug("Dependence chain: %s, %r -> %r" % (tt.epoch_to_string(t), l, trunk))
-                        trunk_res = helper(g, trunk, t)
+                        trunk_res = helper(g, trunk, t, l)
                         if trunk_res == NEG:
                             g[l[0]][l[1]]['inference'][t] = SURE
                             call_depth.pop()
                             return SURE
+                        elif trunk_res == LIKELY:
+                            g[l[0]][l[1]]['inference'][t] = LIKELY
+                            call_depth.pop()
+                            return LIKELY
                         else:
                             g[l[0]][l[1]]['inference'][t] = NEG
                             call_depth.pop()
@@ -386,11 +423,10 @@ def change_inference_link(graph, link_threshold, bin_size, begin, stop):
             return NEG
 
     t1 = time.time()
-
     for ts in range((begin // bin_size) * bin_size, ((stop // bin_size) + 1) * bin_size, bin_size):
         for link in graph.edges_iter():
             if graph[link[0]][link[1]]['score'][ts] > link_threshold and ts not in graph[link[0]][link[1]]['inference']:
-                graph[link[0]][link[1]]['inference'][ts] = helper(graph, link, ts)
+                _ = helper(graph, link, ts)
     t2 = time.time()
     logging.debug("Link congestion inference in %.2f sec" % (t2 - t1))
 
