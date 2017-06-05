@@ -400,6 +400,8 @@ def change_inference_link(graph, link_threshold, bin_size, begin, stop):
                             g[l[0]][l[1]]['inference'][t] = NEG
                         else:
                             g[l[0]][l[1]]['inference'][t] = LIKELY
+            else:
+                g[l[0]][l[1]]['inference'][t] = NEG
         elif len(ext[l[1]]) == 0:
             if ext_con_count_prop[l[0]] > 1:
                 pb_hash = set()
@@ -425,6 +427,8 @@ def change_inference_link(graph, link_threshold, bin_size, begin, stop):
                             g[l[0]][l[1]]['inference'][t] = NEG
                         else:
                             g[l[0]][l[1]]['inference'][t] = LIKELY
+            else:
+                g[l[0]][l[1]]['inference'][t] = NEG
         else:
             g[l[0]][l[1]]['inference'][t] = NEG
 
