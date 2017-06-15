@@ -59,7 +59,7 @@ def main():
 
     # load topo from json file
     topo = json_graph.node_link_graph(topo)
-    logging.debug("%d node, %d links" % (len(topo.nodes()), len(topo.edges())))
+    logging.info("%d node, %d links" % (len(topo.nodes()), len(topo.edges())))
 
     if not os.path.exists(args.directory):
         logging.error("%s doesn't exist." % args.directory)
@@ -124,7 +124,7 @@ def main():
             for pb in topo.node[n]['probe']:
                 pb2nodes[pb].append(n)
     t4 = time.time()
-    logging.debug("Topo data preparation in %.2f sec" % (t4-t3))
+    logging.info("Topo data preparation in %.2f sec" % (t4-t3))
 
     # calculate the change sum per bin per link, per node
     # incrementally update the entire, file by file
@@ -147,7 +147,7 @@ def main():
             for t in topo.node[n]['score']:
                 topo.node[n]['score'][t] /= float(pb_count)
     t4 = time.time()
-    logging.debug("Normalize change index in %.2f sec" % (t4-t3))
+    logging.info("Normalize change index in %.2f sec" % (t4-t3))
 
     # perform change location inference
     tg.change_inference_node(topo, NODE_THRESHOLD, BIN, begin, stop)
@@ -166,7 +166,7 @@ def main():
                                      for i in sorted(topo.node[n]['inference'].items(), key=lambda s: s[0])
                                      if i[1] != tg.NEG]
     t4 = time.time()
-    logging.debug("Change index and inference formatting in %.2f sec" % (t4 - t3))
+    logging.info("Change index and inference formatting in %.2f sec" % (t4 - t3))
 
     # serialize graph to json
     t3 = time.time()
@@ -178,7 +178,7 @@ def main():
     res['nodes'] = [dict(chain(v.items(), [('id', k)])) for k, v in topo.nodes_iter(data=True)]
     res['links'] = [dict(chain(v.items(), [('source', src), ('target', dst)])) for src, dst, v in topo.edges_iter(data=True)]
     t4 = time.time()
-    logging.debug("nx.Grape to dict in %.2f sec" % (t4-t3))
+    logging.info("nx.Grape to dict in %.2f sec" % (t4-t3))
 
     json.dump(res, open(args.outfile, 'w'))
 
