@@ -108,6 +108,8 @@ def worker(fn, end=None, begin=None, stop=None):
             t.path_to_graph(as_path, pb, g)
 
     for n in g:
+        # 1 for source; 2 for ixp; 3 for dst; 4 for all the others
+        # 4 is always added
         attr = defaultdict(set)
         if n in source:
             attr['tag'].add(1)
@@ -116,7 +118,8 @@ def worker(fn, end=None, begin=None, stop=None):
             attr['tag'].add(2)
         if n in dest:
             attr['tag'].add(3)
-        attr['tag'].add(4)
+        if not attr.get('tag'):
+            attr['tag'].add(4)
         g.node[n] = attr
 
     t4 = time.time()
@@ -206,7 +209,7 @@ def main():
                    itertools.izip(files, itertools.repeat(args.end),
                                   itertools.repeat(begin), itertools.repeat(stop)))
 
-    g = t.compose_all_modify(res)
+    g = t.graph_union(res)
 
     # listfy the node/link attributes, otherwise cannot be serialized
     for e in g.edges_iter():

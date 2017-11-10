@@ -92,7 +92,7 @@ def compose_modify(G, H):
         if n in R.nodes_iter():
             dd = dict()
             d1 = R.node[n]
-            dd['tag'] = d1['tag'] | d['tage']
+            dd['tag'] = d1['tag'] | d['tag']
             if 'hosting' in d or 'hosting' in d1:
                 dd['hosting'] = set()
                 for di in [d, d1]:
@@ -114,6 +114,51 @@ def compose_modify(G, H):
         R.add_edge(src, tgt, dd)
 
     return R
+
+
+def graph_update(original, delta):
+    """update the originial graph with the delta graph
+
+    Args:
+        original (nx.Graph)
+        delta (nx.Graph)
+
+    Note:
+        modification is made to original graph
+    """
+
+    if not original.is_multigraph() == delta.is_multigraph() == False:
+        raise nx.NetworkXError('Doesn\'t handle multi-graph.')
+
+    for n, d in delta.nodes_iter(data=True):
+        if n in original.nodes_iter():
+            # there should be always a tag for each node
+            original.node[n]['tag'].update(d['tag'])
+        else:
+            original.add_node(n, d)
+
+    for src, tgt, d in delta.edges_iter(data=True):
+        if (src, tgt) in original.edges_iter():
+            for k, v in d.iteritems():
+                original[src][tgt][k].update(v)
+        else:
+            original.add_edge(src, tgt, d)
+
+
+def graph_union(graphs):
+
+    """combine a list of graphs in a much more efficient way
+
+    Args:
+        graphs (list of nx.Graph)
+
+    Returns:
+        C (nx.graph): combined graph
+    """
+    comb = nx.Graph()
+    for g in iter(graphs):
+        graph_update(comb, g)
+    return comb
 
 
 def compose_all_modify(graphs):
